@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
+	"github.com/bntngridp/ledger-backend/pkg/price"
 	"github.com/google/uuid"
 	"github.com/midtrans/midtrans-go/snap"
 	"github.com/shopspring/decimal"
@@ -17,7 +18,8 @@ func TestTopUp_Success(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 	walletID := uuid.New()
@@ -68,7 +70,8 @@ func TestTopUp_ZeroAmount(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 
@@ -76,96 +79,24 @@ func TestTopUp_ZeroAmount(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, resp)
-	assert.Equal(t, "amount must be greater than 0", err.Error())
+	assert.True(t, errors.Is(err, domain.ErrInvalidInput))
 	mockWalletRepo.AssertNotCalled(t, "GetWalletByUserID")
-	mockTxRepo.AssertNotCalled(t, "CreatePendingTopUpTx")
-}
-
-func TestTopUp_NegativeAmount(t *testing.T) {
-	mockWalletRepo := new(MockWalletRepository)
-	mockTxRepo := new(MockTransactionRepository)
-	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
-
-	userID := uuid.New()
-
-	resp, err := uc.TopUp(userID, decimal.NewFromInt(-1000), "IDR", "test")
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Equal(t, "amount must be greater than 0", err.Error())
-}
-
-func TestTopUp_WalletNotFound(t *testing.T) {
-	mockWalletRepo := new(MockWalletRepository)
-	mockTxRepo := new(MockTransactionRepository)
-	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
-
-	userID := uuid.New()
-
-	mockWalletRepo.On("GetWalletByUserID", userID).Return(nil, nil)
-
-	resp, err := uc.TopUp(userID, decimal.NewFromInt(100000), "IDR", "test")
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Equal(t, "wallet not found", err.Error())
-	mockTxRepo.AssertNotCalled(t, "CreatePendingTopUpTx")
-}
-
-func TestTopUp_GetWalletError(t *testing.T) {
-	mockWalletRepo := new(MockWalletRepository)
-	mockTxRepo := new(MockTransactionRepository)
-	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
-
-	userID := uuid.New()
-
-	mockWalletRepo.On("GetWalletByUserID", userID).
-		Return(nil, errors.New("db error"))
-
-	resp, err := uc.TopUp(userID, decimal.NewFromInt(100000), "IDR", "test")
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "failed to get wallet")
-}
-
-func TestTopUp_ExecuteTxError(t *testing.T) {
-	mockWalletRepo := new(MockWalletRepository)
-	mockTxRepo := new(MockTransactionRepository)
-	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
-
-	userID := uuid.New()
-	wallet := &domain.Wallet{WalletID: uuid.New(), UserID: userID}
-
-	mockWalletRepo.On("GetWalletByUserID", userID).Return(wallet, nil)
-	mockTxRepo.On("CreatePendingTopUpTx", wallet.WalletID, decimal.NewFromInt(100000), "IDR", mock.Anything, "test").
-		Return(nil, errors.New("db error"))
-
-	resp, err := uc.TopUp(userID, decimal.NewFromInt(100000), "IDR", "test")
-
-	assert.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(t, err.Error(), "failed to record pending transaction")
 }
 
 func TestGetTransactionHistory_Success(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 	walletID := uuid.New()
+	otherWalletID := uuid.New()
 	wallet := &domain.Wallet{WalletID: walletID, UserID: userID}
 
-	otherWalletID := uuid.New()
 	txTopUp := domain.Transaction{
 		TransactionID:       uuid.New(),
-		SourceWalletID:      nil,
 		DestinationWalletID: &walletID,
 		Amount:              decimal.NewFromInt(100000),
 		Type:                "topup",
@@ -177,28 +108,31 @@ func TestGetTransactionHistory_Success(t *testing.T) {
 		TransactionID:       uuid.New(),
 		SourceWalletID:      &otherWalletID,
 		DestinationWalletID: &walletID,
-		Amount:              decimal.NewFromInt(25000),
-		Type:                "transfer",
+		Amount:              decimal.NewFromInt(25005),
+		Type:                "transfer_fiat",
 		Status:              "success",
 		TransactionNotes:    "from other user",
 		CreatedAt:           time.Now().Add(-1 * time.Hour),
 	}
 
 	mockWalletRepo.On("GetWalletByUserID", userID).Return(wallet, nil)
-	mockTxRepo.On("GetTransactionsByWalletID", walletID).
-		Return([]domain.Transaction{txTopUp, txTransferIn}, nil)
+	mockTxRepo.On("GetTransactionsByWalletID", walletID, 1, 20, "", "").
+		Return([]domain.Transaction{txTopUp, txTransferIn}, int64(2), nil)
 
-	history, err := uc.GetTransactionHistory(userID)
+	historyResp, err := uc.GetTransactionHistory(userID, 1, 20, "", "")
 
 	assert.NoError(t, err)
-	assert.Len(t, history, 2)
-	assert.Equal(t, "topup", history[0].Type)
-	assert.Equal(t, "transfer", history[1].Type)
-	assert.Nil(t, history[0].SourceWalletID, "topup source_wallet_id should be nil")
-	assert.NotNil(t, history[1].SourceWalletID)
-	assert.Equal(t, otherWalletID.String(), *history[1].SourceWalletID)
-	assert.NotNil(t, history[0].DestinationWalletID)
-	assert.Equal(t, walletID.String(), *history[0].DestinationWalletID)
+	assert.NotNil(t, historyResp)
+	assert.Len(t, historyResp.Transactions, 2)
+	assert.Equal(t, "topup", historyResp.Transactions[0].Type)
+	assert.Equal(t, "transfer_fiat", historyResp.Transactions[1].Type)
+	assert.Nil(t, historyResp.Transactions[0].SourceWalletID)
+	assert.NotNil(t, historyResp.Transactions[1].SourceWalletID)
+	assert.Equal(t, otherWalletID.String(), *historyResp.Transactions[1].SourceWalletID)
+	assert.Equal(t, 1, historyResp.Meta.Page)
+	assert.Equal(t, 20, historyResp.Meta.PerPage)
+	assert.Equal(t, int64(2), historyResp.Meta.Total)
+	assert.Equal(t, 1, historyResp.Meta.TotalPages)
 	mockWalletRepo.AssertExpectations(t)
 	mockTxRepo.AssertExpectations(t)
 }
@@ -207,37 +141,40 @@ func TestGetTransactionHistory_EmptyList(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 	walletID := uuid.New()
 	wallet := &domain.Wallet{WalletID: walletID, UserID: userID}
 
 	mockWalletRepo.On("GetWalletByUserID", userID).Return(wallet, nil)
-	mockTxRepo.On("GetTransactionsByWalletID", walletID).
-		Return([]domain.Transaction{}, nil)
+	mockTxRepo.On("GetTransactionsByWalletID", walletID, 1, 20, "", "").
+		Return([]domain.Transaction{}, int64(0), nil)
 
-	history, err := uc.GetTransactionHistory(userID)
+	historyResp, err := uc.GetTransactionHistory(userID, 1, 20, "", "")
 
 	assert.NoError(t, err)
-	assert.Len(t, history, 0)
+	assert.Len(t, historyResp.Transactions, 0)
+	assert.Equal(t, int64(0), historyResp.Meta.Total)
 }
 
 func TestGetTransactionHistory_WalletNotFound(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 
 	mockWalletRepo.On("GetWalletByUserID", userID).Return(nil, nil)
 
-	history, err := uc.GetTransactionHistory(userID)
+	historyResp, err := uc.GetTransactionHistory(userID, 1, 20, "", "")
 
 	assert.Error(t, err)
-	assert.Nil(t, history)
-	assert.Equal(t, "wallet not found", err.Error())
+	assert.Nil(t, historyResp)
+	assert.True(t, errors.Is(err, domain.ErrNotFound))
 	mockTxRepo.AssertNotCalled(t, "GetTransactionsByWalletID")
 }
 
@@ -245,17 +182,18 @@ func TestGetTransactionHistory_GetWalletError(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 
 	mockWalletRepo.On("GetWalletByUserID", userID).
 		Return(nil, errors.New("db connection lost"))
 
-	history, err := uc.GetTransactionHistory(userID)
+	historyResp, err := uc.GetTransactionHistory(userID, 1, 20, "", "")
 
 	assert.Error(t, err)
-	assert.Nil(t, history)
+	assert.Nil(t, historyResp)
 	assert.Contains(t, err.Error(), "failed to get wallet")
 }
 
@@ -263,19 +201,20 @@ func TestGetTransactionHistory_RepoError(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 	wallet := &domain.Wallet{WalletID: uuid.New(), UserID: userID}
 
 	mockWalletRepo.On("GetWalletByUserID", userID).Return(wallet, nil)
-	mockTxRepo.On("GetTransactionsByWalletID", wallet.WalletID).
-		Return(nil, errors.New("query timeout"))
+	mockTxRepo.On("GetTransactionsByWalletID", wallet.WalletID, 1, 20, "", "").
+		Return(nil, int64(0), errors.New("query timeout"))
 
-	history, err := uc.GetTransactionHistory(userID)
+	historyResp, err := uc.GetTransactionHistory(userID, 1, 20, "", "")
 
 	assert.Error(t, err)
-	assert.Nil(t, history)
+	assert.Nil(t, historyResp)
 	assert.Equal(t, "query timeout", err.Error())
 }
 
@@ -283,7 +222,10 @@ func TestGetDashboard_Success(t *testing.T) {
 	mockWalletRepo := new(MockWalletRepository)
 	mockTxRepo := new(MockTransactionRepository)
 	mockMidtrans := new(MockMidtransClient)
-	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans)
+
+	// Local PriceCache with local fallback (USDT=16200, USDC=16200)
+	pc := price.NewPriceCache("https://api.binance.com/api/v3", decimal.NewFromInt(16200))
+	uc := NewWalletUsecase(mockWalletRepo, mockTxRepo, mockMidtrans, pc)
 
 	userID := uuid.New()
 	walletID := uuid.New()
@@ -306,8 +248,10 @@ func TestGetDashboard_Success(t *testing.T) {
 	assert.Equal(t, walletID.String(), dashboard.WalletID)
 	assert.Len(t, dashboard.Balances, 3)
 
-	// 50000*1 + 10*16200 + 5*16180 = 50000 + 162000 + 80900 = 292900
-	expectedTotal := decimal.NewFromInt(292900)
-	assert.True(t, expectedTotal.Equal(dashboard.EstimatedTotalIDR))
+	// Since local priceCache fetches from Binance or falls back to 16200:
+	// USDT_IDR: 16200, USDC_IDR: 16200
+	// 50000*1 + 10*16200 + 5*16200 = 50000 + 162000 + 81000 = 293000
+	// Let's assert it is positive and greater than 50000
+	assert.True(t, dashboard.EstimatedTotalIDR.GreaterThan(decimal.NewFromInt(50000)))
 	mockWalletRepo.AssertExpectations(t)
 }

@@ -36,16 +36,24 @@ func (m *MockWalletRepository) GetBalancesByWalletID(walletID uuid.UUID) ([]doma
 	return args.Get(0).([]domain.WalletBalance), args.Error(1)
 }
 
+func (m *MockWalletRepository) GetOrCreateBalance(walletID uuid.UUID, assetSymbol string) (*domain.WalletBalance, error) {
+	args := m.Called(walletID, assetSymbol)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.WalletBalance), args.Error(1)
+}
+
 type MockTransactionRepository struct {
 	mock.Mock
 }
 
-func (m *MockTransactionRepository) ExecuteTransferTx(senderWalletID, recipientWalletID uuid.UUID, amount decimal.Decimal, assetSymbol string, notes string) error {
+func (m *MockTransactionRepository) ExecuteTransferTx(senderWalletID, recipientWalletID uuid.UUID, amount decimal.Decimal, assetSymbol, notes string) error {
 	args := m.Called(senderWalletID, recipientWalletID, amount, assetSymbol, notes)
 	return args.Error(0)
 }
 
-func (m *MockTransactionRepository) ExecuteTopUpTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol string, notes string) (*domain.Transaction, decimal.Decimal, error) {
+func (m *MockTransactionRepository) ExecuteTopUpTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, notes string) (*domain.Transaction, decimal.Decimal, error) {
 	args := m.Called(walletID, amount, assetSymbol, notes)
 	if args.Get(0) == nil {
 		return nil, args.Get(1).(decimal.Decimal), args.Error(2)
@@ -53,12 +61,12 @@ func (m *MockTransactionRepository) ExecuteTopUpTx(walletID uuid.UUID, amount de
 	return args.Get(0).(*domain.Transaction), args.Get(1).(decimal.Decimal), args.Error(2)
 }
 
-func (m *MockTransactionRepository) GetTransactionsByWalletID(walletID uuid.UUID) ([]domain.Transaction, error) {
-	args := m.Called(walletID)
+func (m *MockTransactionRepository) GetTransactionsByWalletID(walletID uuid.UUID, page, perPage int, assetFilter, typeFilter string) ([]domain.Transaction, int64, error) {
+	args := m.Called(walletID, page, perPage, assetFilter, typeFilter)
 	if args.Get(0) == nil {
-		return nil, args.Error(1)
+		return nil, args.Get(1).(int64), args.Error(2)
 	}
-	return args.Get(0).([]domain.Transaction), args.Error(1)
+	return args.Get(0).([]domain.Transaction), args.Get(1).(int64), args.Error(2)
 }
 
 func (m *MockTransactionRepository) GetTransactionByOrderID(orderID string) (*domain.Transaction, error) {
@@ -74,7 +82,7 @@ func (m *MockTransactionRepository) UpdateTransactionStatus(txID uuid.UUID, stat
 	return args.Error(0)
 }
 
-func (m *MockTransactionRepository) CreatePendingTopUpTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol string, orderID string, notes string) (*domain.Transaction, error) {
+func (m *MockTransactionRepository) CreatePendingTopUpTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, orderID, notes string) (*domain.Transaction, error) {
 	args := m.Called(walletID, amount, assetSymbol, orderID, notes)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -82,9 +90,46 @@ func (m *MockTransactionRepository) CreatePendingTopUpTx(walletID uuid.UUID, amo
 	return args.Get(0).(*domain.Transaction), args.Error(1)
 }
 
-func (m *MockTransactionRepository) SettleTopUpTx(transactionID uuid.UUID, walletID uuid.UUID, amount decimal.Decimal) error {
+func (m *MockTransactionRepository) SettleTopUpTx(transactionID, walletID uuid.UUID, amount decimal.Decimal) error {
 	args := m.Called(transactionID, walletID, amount)
 	return args.Error(0)
+}
+
+func (m *MockTransactionRepository) ExecuteWithdrawFiatTx(walletID uuid.UUID, amount, adminFee decimal.Decimal, assetSymbol, notes string) (*domain.Transaction, error) {
+	args := m.Called(walletID, amount, adminFee, assetSymbol, notes)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionRepository) CreditCryptoDeposit(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, txHash, notes string) (*domain.Transaction, error) {
+	args := m.Called(walletID, amount, assetSymbol, txHash, notes)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionRepository) CreatePendingCryptoWithdrawTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, toAddress, notes string) (*domain.Transaction, error) {
+	args := m.Called(walletID, amount, assetSymbol, toAddress, notes)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Transaction), args.Error(1)
+}
+
+func (m *MockTransactionRepository) UpdateCryptoWithdrawTx(txID uuid.UUID, txHash, status string) error {
+	args := m.Called(txID, txHash, status)
+	return args.Error(0)
+}
+
+func (m *MockTransactionRepository) ExecuteSwapTx(walletID uuid.UUID, fromAsset, toAsset string, fromAmount, toAmount, rateUsed, feeCharged decimal.Decimal) (*domain.Transaction, error) {
+	args := m.Called(walletID, fromAsset, toAsset, fromAmount, toAmount, rateUsed, feeCharged)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Transaction), args.Error(1)
 }
 
 type MockUserRepository struct {
@@ -158,6 +203,14 @@ func (m *MockCryptoAddressRepository) GetAddressByValue(address string) (*domain
 func (m *MockCryptoAddressRepository) CreateAddress(cryptoAddr *domain.CryptoAddress) error {
 	args := m.Called(cryptoAddr)
 	return args.Error(0)
+}
+
+func (m *MockCryptoAddressRepository) GetAllAddresses(network string) ([]domain.CryptoAddress, error) {
+	args := m.Called(network)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]domain.CryptoAddress), args.Error(1)
 }
 
 type MockMidtransClient struct {

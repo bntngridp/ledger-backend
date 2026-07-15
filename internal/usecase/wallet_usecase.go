@@ -3,17 +3,20 @@ package usecase
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
 	"github.com/bntngridp/ledger-backend/pkg/midtrans"
+	"github.com/bntngridp/ledger-backend/pkg/price"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
+// WalletUsecase defines the business operations for the wallet module.
 type WalletUsecase interface {
-	TopUp(userID uuid.UUID, amount decimal.Decimal, assetSymbol string, notes string) (*domain.TopUpResponse, error)
-	GetTransactionHistory(userID uuid.UUID) ([]domain.TransactionHistoryItem, error)
+	TopUp(userID uuid.UUID, amount decimal.Decimal, assetSymbol, notes string) (*domain.TopUpResponse, error)
+	GetTransactionHistory(userID uuid.UUID, page, perPage int, assetFilter, typeFilter string) (*domain.TransactionHistoryResponse, error)
 	GetDashboard(userID uuid.UUID) (*domain.DashboardResponse, error)
 }
 
@@ -21,19 +24,27 @@ type walletUsecase struct {
 	walletRepo     domain.WalletRepository
 	txRepo         domain.TransactionRepository
 	midtransClient midtrans.Client
+	priceCache     *price.PriceCache
 }
 
-func NewWalletUsecase(walletRepo domain.WalletRepository, txRepo domain.TransactionRepository, midtransClient midtrans.Client) WalletUsecase {
+// NewWalletUsecase creates a new WalletUsecase.
+func NewWalletUsecase(
+	walletRepo domain.WalletRepository,
+	txRepo domain.TransactionRepository,
+	midtransClient midtrans.Client,
+	priceCache *price.PriceCache,
+) WalletUsecase {
 	return &walletUsecase{
 		walletRepo:     walletRepo,
 		txRepo:         txRepo,
 		midtransClient: midtransClient,
+		priceCache:     priceCache,
 	}
 }
 
-func (uc *walletUsecase) TopUp(userID uuid.UUID, amount decimal.Decimal, assetSymbol string, notes string) (*domain.TopUpResponse, error) {
+func (uc *walletUsecase) TopUp(userID uuid.UUID, amount decimal.Decimal, assetSymbol, notes string) (*domain.TopUpResponse, error) {
 	if amount.LessThanOrEqual(decimal.Zero) {
-		return nil, errors.New("amount must be greater than 0")
+		return nil, domain.ErrInvalidInput
 	}
 
 	wallet, err := uc.walletRepo.GetWalletByUserID(userID)
@@ -41,19 +52,16 @@ func (uc *walletUsecase) TopUp(userID uuid.UUID, amount decimal.Decimal, assetSy
 		return nil, fmt.Errorf("failed to get wallet: %w", err)
 	}
 	if wallet == nil {
-		return nil, errors.New("wallet not found")
+		return nil, domain.ErrNotFound
 	}
 
-	// Generate a unique Midtrans Order ID
 	orderID := fmt.Sprintf("TOPUP-IDR-%s-%d", wallet.WalletID.String()[:8], time.Now().UnixNano())
 
-	// Create pending transaction in database
 	txRecord, err := uc.txRepo.CreatePendingTopUpTx(wallet.WalletID, amount, assetSymbol, orderID, notes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to record pending transaction: %w", err)
 	}
 
-	// Fetch user details for Midtrans
 	email := "user@example.com"
 	name := "User"
 	if wallet.User != nil {
@@ -61,12 +69,10 @@ func (uc *walletUsecase) TopUp(userID uuid.UUID, amount decimal.Decimal, assetSy
 		name = wallet.User.Username
 	}
 
-	// Initiate Snap Transaction
 	snapResp, err := uc.midtransClient.CreateSnapTransaction(orderID, amount, email, name)
 	if err != nil {
-		// Update transaction status to failed
 		_ = uc.txRepo.UpdateTransactionStatus(txRecord.TransactionID, "failed", "Midtrans charge failed: "+err.Error())
-		return nil, fmt.Errorf("failed to initiate Midtrans Snap: %w", err)
+		return nil, fmt.Errorf("%w: %v", domain.ErrExternalService, err)
 	}
 
 	return &domain.TopUpResponse{
@@ -79,21 +85,33 @@ func (uc *walletUsecase) TopUp(userID uuid.UUID, amount decimal.Decimal, assetSy
 	}, nil
 }
 
-func (uc *walletUsecase) GetTransactionHistory(userID uuid.UUID) ([]domain.TransactionHistoryItem, error) {
+func (uc *walletUsecase) GetTransactionHistory(userID uuid.UUID, page, perPage int, assetFilter, typeFilter string) (*domain.TransactionHistoryResponse, error) {
 	wallet, err := uc.walletRepo.GetWalletByUserID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get wallet: %w", err)
 	}
 	if wallet == nil {
-		return nil, errors.New("wallet not found")
+		return nil, domain.ErrNotFound
 	}
 
-	transactions, err := uc.txRepo.GetTransactionsByWalletID(wallet.WalletID)
+	if page < 1 {
+		page = 1
+	}
+	if perPage < 1 || perPage > 100 {
+		perPage = 20
+	}
+
+	transactions, total, err := uc.txRepo.GetTransactionsByWalletID(wallet.WalletID, page, perPage, assetFilter, typeFilter)
 	if err != nil {
 		return nil, err
 	}
 
-	var result []domain.TransactionHistoryItem
+	totalPages := int(math.Ceil(float64(total) / float64(perPage)))
+	if totalPages == 0 {
+		totalPages = 1
+	}
+
+	var items []domain.TransactionHistoryItem
 	for _, t := range transactions {
 		item := domain.TransactionHistoryItem{
 			TransactionID:    t.TransactionID.String(),
@@ -104,6 +122,8 @@ func (uc *walletUsecase) GetTransactionHistory(userID uuid.UUID) ([]domain.Trans
 			TransactionNotes: t.TransactionNotes,
 			TxHash:           t.TxHash,
 			MidtransOrderID:  t.MidtransOrderID,
+			RateUsed:         t.RateUsed,
+			FeeCharged:       t.FeeCharged,
 			CreatedAt:        t.CreatedAt,
 		}
 		if t.SourceWalletID != nil {
@@ -114,10 +134,21 @@ func (uc *walletUsecase) GetTransactionHistory(userID uuid.UUID) ([]domain.Trans
 			d := t.DestinationWalletID.String()
 			item.DestinationWalletID = &d
 		}
-		result = append(result, item)
+		items = append(items, item)
+	}
+	if items == nil {
+		items = []domain.TransactionHistoryItem{}
 	}
 
-	return result, nil
+	return &domain.TransactionHistoryResponse{
+		Transactions: items,
+		Meta: domain.PaginationMeta{
+			Page:       page,
+			PerPage:    perPage,
+			Total:      total,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 func (uc *walletUsecase) GetDashboard(userID uuid.UUID) (*domain.DashboardResponse, error) {
@@ -132,24 +163,26 @@ func (uc *walletUsecase) GetDashboard(userID uuid.UUID) (*domain.DashboardRespon
 	var balancesDTO []domain.WalletBalanceDTO
 	estimatedTotalIDR := decimal.Zero
 
-	// Hardcoded fallback rates before Binance API implementation
-	rates := map[string]decimal.Decimal{
-		"IDR":  decimal.NewFromInt(1),
-		"USDT": decimal.NewFromInt(16200),
-		"USDC": decimal.NewFromInt(16180),
-	}
-
 	for _, b := range wallet.Balances {
 		balancesDTO = append(balancesDTO, domain.WalletBalanceDTO{
 			AssetSymbol: b.AssetSymbol,
 			Balance:     b.Balance,
 		})
 
-		rate, exists := rates[b.AssetSymbol]
-		if !exists {
-			rate = decimal.Zero
+		switch b.AssetSymbol {
+		case "IDR":
+			estimatedTotalIDR = estimatedTotalIDR.Add(b.Balance)
+		case "USDT", "USDC":
+			pair := b.AssetSymbol + "_IDR"
+			rate, _, rateErr := uc.priceCache.GetRate(pair)
+			if rateErr == nil && rate.IsPositive() {
+				estimatedTotalIDR = estimatedTotalIDR.Add(b.Balance.Mul(rate))
+			}
 		}
-		estimatedTotalIDR = estimatedTotalIDR.Add(b.Balance.Mul(rate))
+	}
+
+	if balancesDTO == nil {
+		balancesDTO = []domain.WalletBalanceDTO{}
 	}
 
 	return &domain.DashboardResponse{

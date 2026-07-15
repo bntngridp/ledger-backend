@@ -2,6 +2,7 @@ package repository
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ func (r *cryptoAddressRepository) GetAddressByWalletID(walletID uuid.UUID, netwo
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get crypto address: %w", err)
 	}
 	return &cryptoAddr, nil
 }
@@ -33,11 +34,24 @@ func (r *cryptoAddressRepository) GetAddressByValue(address string) (*domain.Cry
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to get crypto address by value: %w", err)
 	}
 	return &cryptoAddr, nil
 }
 
 func (r *cryptoAddressRepository) CreateAddress(cryptoAddr *domain.CryptoAddress) error {
-	return r.db.Create(cryptoAddr).Error
+	if err := r.db.Create(cryptoAddr).Error; err != nil {
+		return fmt.Errorf("failed to create crypto address: %w", err)
+	}
+	return nil
+}
+
+// GetAllAddresses returns all deposit addresses for a given network.
+// Used by the On-Chain Listener to build its watch list on startup.
+func (r *cryptoAddressRepository) GetAllAddresses(network string) ([]domain.CryptoAddress, error) {
+	var addresses []domain.CryptoAddress
+	if err := r.db.Where("network = ?", network).Find(&addresses).Error; err != nil {
+		return nil, fmt.Errorf("failed to get all crypto addresses: %w", err)
+	}
+	return addresses, nil
 }
