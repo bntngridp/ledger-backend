@@ -1,8 +1,8 @@
 {
   "info": {
-    "_postman_id": "ledger-backend-go-2026",
+    "_postman_id": "ledger-backend-go-2026-v2",
     "name": "Ledger Backend Go",
-    "description": "E-Wallet REST API collection with auto token handling and dummy data.\n\nSetup:\n1. Ensure PostgreSQL is running (`docker compose up -d`) and `go run ./cmd/api` is active on port 8080.\n2. Run requests in order: Register budi, Register andi, Login budi, Login andi, Topup, Transfer, History.\n3. JWT tokens are auto-saved to environment variables by login requests.\n4. Transfer and history endpoints auto-use the saved token via Bearer auth.\n\nDummy data: budi@mail.com / andi@mail.com (password: secret123)",
+    "description": "E-Wallet Hybrid System REST API collection.\n\nSetup:\n1. Ensure PostgreSQL is running (`docker compose up -d`) and `go run ./cmd/api` is active on port 8080.\n2. Run requests in order: Register budi, Register andi, Login budi, Login andi, dsb.\n3. JWT tokens are auto-saved to environment variables.\n\nDummy data: budi@mail.com / andi@mail.com (password: secret123)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -68,7 +68,7 @@
           ]
         },
         {
-          "name": "Login budi (saves token automatically)",
+          "name": "Login budi",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
@@ -95,7 +95,7 @@
           ]
         },
         {
-          "name": "Login andi (saves token automatically)",
+          "name": "Login andi",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
@@ -131,25 +131,21 @@
       },
       "item": [
         {
-          "name": "TopUp 100000",
+          "name": "Get Dashboard Summary",
           "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"amount\": 100000,\n  \"notes\": \"top up awal dari dummy data\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/v1/wallet/dashboard", "host": ["{{base_url}}"], "path": ["api", "v1", "wallet", "dashboard"]}
           }
         },
         {
-          "name": "TopUp 50000 (lagi)",
+          "name": "TopUp 100000 (IDR)",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 50000,\n  \"notes\": \"top up kedua\"\n}"
+              "raw": "{\n  \"amount\": 100000,\n  \"notes\": \"top up awal budi\"\n}"
             },
             "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
           }
@@ -167,35 +163,11 @@
           }
         },
         {
-          "name": "Transfer 10000 to andi",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"destination_user_id\": \"{{andi_user_id}}\",\n  \"amount\": 10000,\n  \"notes\": \"bayar kopi\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/transfer", "host": ["{{base_url}}"], "path": ["api", "v1", "transfer"]}
-          }
-        },
-        {
           "name": "Get transaction history",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/api/v1/transactions", "host": ["{{base_url}}"], "path": ["api", "v1", "transactions"]}
-          }
-        },
-        {
-          "name": "Transfer (insufficient balance) - expects 400",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"destination_user_id\": \"{{andi_user_id}}\",\n  \"amount\": 999999999,\n  \"notes\": \"test insufficient\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/transfer", "host": ["{{base_url}}"], "path": ["api", "v1", "transfer"]}
+            "url": {"raw": "{{base_url}}/api/v1/transactions?page=1&per_page=20", "host": ["{{base_url}}"], "path": ["api", "v1", "transactions"]}
           }
         }
       ]
@@ -208,23 +180,11 @@
       },
       "item": [
         {
-          "name": "TopUp 200000 (andi)",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"amount\": 200000,\n  \"notes\": \"top up andi\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
-          }
-        },
-        {
-          "name": "Get transaction history (andi)",
+          "name": "Get Dashboard Summary (Andi)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/api/v1/transactions", "host": ["{{base_url}}"], "path": ["api", "v1", "transactions"]}
+            "url": {"raw": "{{base_url}}/api/v1/wallet/dashboard", "host": ["{{base_url}}"], "path": ["api", "v1", "wallet", "dashboard"]}
           }
         },
         {
@@ -234,7 +194,7 @@
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"destination_user_id\": \"{{budi_user_id}}\",\n  \"amount\": 5000,\n  \"notes\": \"bales budi\"\n}"
+              "raw": "{\n  \"destination_user_id\": \"{{budi_user_id}}\",\n  \"amount\": 5000,\n  \"notes\": \"kembalian\"\n}"
             },
             "url": {"raw": "{{base_url}}/api/v1/transfer", "host": ["{{base_url}}"], "path": ["api", "v1", "transfer"]}
           }
@@ -242,67 +202,126 @@
       ]
     },
     {
-      "name": "4. Negative tests",
+      "name": "4. Exchange",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+      },
       "item": [
         {
-          "name": "Register duplicate email - expects 409",
+          "name": "Get USDT_IDR Rate",
           "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"username\": \"budi2\",\n  \"email\": \"budi@mail.com\",\n  \"password\": \"secret123\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]}
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/v1/exchange/rate?pair=USDT_IDR", "host": ["{{base_url}}"], "path": ["api", "v1", "exchange", "rate"]}
           }
         },
         {
-          "name": "Login wrong password - expects 401",
+          "name": "Swap 50000 IDR to USDT",
           "request": {
             "method": "POST",
             "header": [{"key": "Content-Type", "value": "application/json"}],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"budi@mail.com\",\n  \"password\": \"wrongpassword\"\n}"
+              "raw": "{\n  \"from_asset\": \"IDR\",\n  \"to_asset\": \"USDT\",\n  \"amount\": 50000\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"]}
-          }
-        },
-        {
-          "name": "Topup without token - expects 401",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"amount\": 1000,\n  \"notes\": \"no token\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
-          }
-        },
-        {
-          "name": "Topup zero amount - expects 400",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "auth": {
-              "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{budi_token}}"}]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"amount\": 0,\n  \"notes\": \"invalid\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
+            "url": {"raw": "{{base_url}}/api/v1/exchange/swap", "host": ["{{base_url}}"], "path": ["api", "v1", "exchange", "swap"]}
           }
         }
       ]
     },
     {
-      "name": "5. Health",
+      "name": "5. Crypto",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+      },
       "item": [
         {
-          "name": "Ping (with budi token)",
+          "name": "Get or Create Deposit Address (USDT)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/api/v1/crypto/address?network=polygon_amoy&asset_symbol=USDT", "host": ["{{base_url}}"], "path": ["api", "v1", "crypto", "address"]}
+          }
+        },
+        {
+          "name": "Withdraw Crypto",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_symbol\": \"USDT\",\n  \"network\": \"polygon_amoy\",\n  \"to_address\": \"0x1234567890123456789012345678901234567890\",\n  \"amount\": 1.5,\n  \"notes\": \"withdrawal test\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/v1/crypto/withdraw", "host": ["{{base_url}}"], "path": ["api", "v1", "crypto", "withdraw"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Fiat Withdrawal",
+      "auth": {
+        "type": "bearer",
+        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+      },
+      "item": [
+        {
+          "name": "Withdraw Fiat to Bank Account",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"bank_code\": \"bca\",\n  \"account_number\": \"1234567890\",\n  \"account_name\": \"Budi\",\n  \"notes\": \"withdraw test\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/v1/fiat/withdraw", "host": ["{{base_url}}"], "path": ["api", "v1", "fiat", "withdraw"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Webhooks",
+      "item": [
+        {
+          "name": "Midtrans Payment Webhook",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"TOPUP-IDR-12345\",\n  \"status_code\": \"200\",\n  \"gross_amount\": \"100000.00\",\n  \"signature_key\": \"dummy_signature\",\n  \"transaction_status\": \"settlement\"\n}"
+            },
+            "url": {"raw": "{{base_url}}/api/v1/webhooks/midtrans", "host": ["{{base_url}}"], "path": ["api", "v1", "webhooks", "midtrans"]}
+          }
+        },
+        {
+          "name": "Midtrans Iris Payout Webhook",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"payout_id\": 1234567,\n    \"reference_no\": \"{{budi_withdraw_tx_id}}\",\n    \"amount\": \"50000.00\",\n    \"status\": \"completed\"\n  }\n]"
+            },
+            "url": {"raw": "{{base_url}}/api/v1/webhooks/iris", "host": ["{{base_url}}"], "path": ["api", "v1", "webhooks", "iris"]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Health & Docs",
+      "item": [
+        {
+          "name": "System Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"]}
+          }
+        },
+        {
+          "name": "Ping (Protected)",
           "request": {
             "method": "GET",
             "header": [{"key": "Authorization", "value": "Bearer {{budi_token}}"}],
@@ -310,15 +329,7 @@
           }
         },
         {
-          "name": "Ping (no token) - expects 401",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {"raw": "{{base_url}}/ping", "host": ["{{base_url}}"], "path": ["ping"]}
-          }
-        },
-        {
-          "name": "Swagger UI (HTML)",
+          "name": "Swagger UI",
           "request": {
             "method": "GET",
             "header": [],

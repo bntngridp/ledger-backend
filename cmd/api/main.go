@@ -18,11 +18,14 @@ package main
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/bntngridp/ledger-backend/internal/delivery"
 	repo "github.com/bntngridp/ledger-backend/internal/repository"
@@ -51,13 +54,18 @@ func getEnv(key, fallback string) string {
 }
 
 func main() {
+	// Initialize structured logging (slog) with JSON output
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	slog.SetDefault(logger)
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("no .env file found, using system env")
+		slog.Info("no .env file found, using system env")
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		log.Fatal("JWT_SECRET is required (set in .env or system env)")
+		slog.Error("JWT_SECRET is required (set in .env or system env)")
+		os.Exit(1)
 	}
 	expiryHoursStr := getEnv("JWT_EXPIRY_HOURS", "24")
 	expiryHours, err := strconv.Atoi(expiryHoursStr)
@@ -69,7 +77,8 @@ func main() {
 	// Midtrans Configuration
 	midtransServerKey := os.Getenv("MIDTRANS_SERVER_KEY")
 	if midtransServerKey == "" {
-		log.Fatal("MIDTRANS_SERVER_KEY is required")
+		slog.Error("MIDTRANS_SERVER_KEY is required")
+		os.Exit(1)
 	}
 	midtransIsProduction := os.Getenv("MIDTRANS_IS_PRODUCTION") == "true"
 
@@ -80,7 +89,8 @@ func main() {
 	// Crypto Configuration
 	cryptoEncryptionKeyBase64 := os.Getenv("CRYPTO_ENCRYPTION_KEY")
 	if cryptoEncryptionKeyBase64 == "" {
-		log.Fatal("CRYPTO_ENCRYPTION_KEY is required")
+		slog.Error("CRYPTO_ENCRYPTION_KEY is required")
+		os.Exit(1)
 	}
 
 	// Alchemy Configuration
@@ -119,11 +129,13 @@ func main() {
 
 	db, err := database.InitDB(dbCfg)
 	if err != nil {
-		log.Fatalf("database init failed: %v", err)
+		slog.Error("database init failed", "error", err)
+		os.Exit(1)
 	}
 
 	if err := database.RunMigrations(db); err != nil {
-		log.Fatalf("migration failed: %v", err)
+		slog.Error("migration failed", "error", err)
+		os.Exit(1)
 	}
 
 	// Initialize Clients
@@ -167,7 +179,7 @@ func main() {
 	if alchemyWSURL != "" && !strings.Contains(alchemyWSURL, "your-api-key") && len(contractAssets) > 0 {
 		go erc20Listener.Start(ctx)
 	} else {
-		log.Println("[WARN] Alchemy WebSocket URL is placeholder or missing contract addresses, On-chain listener is disabled")
+		slog.Warn("Alchemy WebSocket URL is placeholder or missing contract addresses, On-chain listener is disabled")
 	}
 
 	// Initialize Usecases
@@ -193,7 +205,8 @@ func main() {
 		Listener:            erc20Listener,
 	})
 	if err != nil {
-		log.Fatalf("failed to initialize crypto usecase: %v", err)
+		slog.Error("failed to initialize crypto usecase", "error", err)
+		os.Exit(1)
 	}
 
 	exchangeUC := usecase.NewExchangeUsecase(walletRepo, txRepo, priceCache, swapFee)
@@ -244,23 +257,26 @@ func main() {
 		api.POST("/webhooks/midtrans", webhookHandler.HandleMidtrans)
 		api.POST("/webhooks/iris", webhookHandler.HandleIris)
 
+		// Rate Limiter: 10 requests max, refills 1 token every 2 seconds (5 requests/10s rate)
+		limiter := middleware.IPBasedRateLimiter(10, 1, 2*time.Second)
+
 		api.Use(middleware.JWTAuth(jwtSecret))
 		{
-			api.POST("/transfer", transferHandler.Transfer)
+			api.POST("/transfer", limiter, transferHandler.Transfer)
 			api.POST("/topup", walletHandler.TopUp)
 			api.GET("/transactions", walletHandler.GetTransactionHistory)
 			api.GET("/wallet/dashboard", walletHandler.GetDashboard)
 
 			// Crypto routes
 			api.GET("/crypto/address", cryptoHandler.GetDepositAddress)
-			api.POST("/crypto/withdraw", cryptoHandler.WithdrawCrypto)
+			api.POST("/crypto/withdraw", limiter, cryptoHandler.WithdrawCrypto)
 
 			// Exchange routes
 			api.GET("/exchange/rate", exchangeHandler.GetRate)
-			api.POST("/exchange/swap", exchangeHandler.Swap)
+			api.POST("/exchange/swap", limiter, exchangeHandler.Swap)
 
 			// Fiat withdrawal route
-			api.POST("/fiat/withdraw", fiatHandler.WithdrawFiat)
+			api.POST("/fiat/withdraw", limiter, fiatHandler.WithdrawFiat)
 		}
 	}
 
@@ -270,9 +286,56 @@ func main() {
 		})
 	})
 
-	log.Printf("server starting on port %s", port)
-	log.Printf("swagger docs: http://localhost:%s/swagger/index.html", port)
-	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("server failed: %v", err)
+	r.GET("/health", func(c *gin.Context) {
+		sqlDB, err := db.DB()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "database connection unavailable: " + err.Error(),
+			})
+			return
+		}
+		if err := sqlDB.Ping(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": "database ping failed: " + err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "healthy",
+			"message": "database connection verified",
+		})
+	})
+
+	srv := &http.Server{
+		Addr:    ":" + port,
+		Handler: r,
 	}
+
+	go func() {
+		slog.Info("server starting", "port", port)
+		slog.Info("swagger docs", "url", "http://localhost:"+port+"/swagger/index.html")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("server failed to start", "error", err)
+			os.Exit(1)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	slog.Info("shutting down server...")
+
+	// Cancel background context to stop on-chain listener gracefully
+	cancel()
+
+	ctxShutdown, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+	if err := srv.Shutdown(ctxShutdown); err != nil {
+		slog.Error("server forced to shutdown", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("server exiting gracefully")
 }

@@ -39,13 +39,17 @@ Import dua file ini ke Postman:
 
 Jalankan request **berurutan** dalam folder:
 
-1. **1. Auth** → Register budi → Register andi → Login budi → Login andi
+1. **1. Auth** → Register budi & andi → Login budi & andi
    - Login otomatis menyimpan token ke environment (`budi_token`, `andi_token`).
    - Register otomatis menyimpan `user_id` ke environment.
-2. **2. Wallet (Budi)** → TopUp 2x → Transfer ke andi 2x → History → Insufficient test
-3. **3. Wallet (Andi)** → TopUp → History → Transfer balik ke budi
-4. **4. Negative tests** → duplicate email, wrong password, no-token, zero amount
-5. **5. Health** → Ping, Swagger UI
+2. **2. Wallet (Budi)** → Get Dashboard → TopUp (IDR) → Transfer (IDR) → History
+3. **3. Wallet (Andi)** → Get Dashboard → Transfer balik ke budi
+4. **4. Exchange** → Get Rate (USDT_IDR) → Swap IDR to USDT (mengonversi Rupiah ke USDT dengan fee 0.5%)
+5. **5. Crypto** → Get/Create Deposit Address (mengenerate EVM address) → Withdraw Crypto
+6. **6. Fiat Withdrawal** → Withdraw Fiat ke Rekening Bank (disbursement)
+7. **7. Webhooks** → Simulasi callback pembayaran Midtrans Snap & callback payout Iris
+8. **8. Health & Docs** → Ping, Swagger UI, System Health Check (`GET /health`)
+
 
 ### Dummy Data
 

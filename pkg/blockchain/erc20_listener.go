@@ -5,7 +5,7 @@ package blockchain
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"math"
 	"math/big"
 	"strings"
@@ -55,23 +55,23 @@ func NewERC20Listener(deps ListenerDeps) *ERC20Listener {
 // Start launches the listener in a blocking loop with exponential backoff on connection failures.
 // It should be called in a goroutine: go listener.Start(ctx)
 func (l *ERC20Listener) Start(ctx context.Context) {
-	log.Printf("[ERC20Listener] Starting on network=%s", l.deps.Network)
+	slog.Info("[ERC20Listener] Starting", "network", l.deps.Network)
 	backoff := 1
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("[ERC20Listener] Context cancelled, shutting down")
+			slog.Info("[ERC20Listener] Context cancelled, shutting down")
 			return
 		default:
 		}
 
 		if err := l.refreshWatchList(ctx); err != nil {
-			log.Printf("[ERC20Listener] Failed to refresh watch list: %v", err)
+			slog.Error("[ERC20Listener] Failed to refresh watch list", "error", err)
 		}
 
 		if err := l.listen(ctx); err != nil {
-			log.Printf("[ERC20Listener] Listener error: %v. Reconnecting in %ds...", err, backoff)
+			slog.Error("[ERC20Listener] Listener error", "error", err, "reconnect_delay_seconds", backoff)
 			select {
 			case <-ctx.Done():
 				return
@@ -98,7 +98,7 @@ func (l *ERC20Listener) refreshWatchList(ctx context.Context) error {
 		addr := &addresses[i]
 		l.watchList[strings.ToLower(addr.Address)] = addr
 	}
-	log.Printf("[ERC20Listener] Watch list loaded: %d addresses", len(l.watchList))
+	slog.Info("[ERC20Listener] Watch list loaded", "count", len(l.watchList))
 	return nil
 }
 
@@ -128,7 +128,7 @@ func (l *ERC20Listener) listen(ctx context.Context) error {
 	}
 	defer wsClient.Close()
 
-	log.Printf("[ERC20Listener] Subscribed to %d contract(s). Listening...", len(contractAddresses))
+	slog.Info("[ERC20Listener] Subscribed to contracts. Listening...", "count", len(contractAddresses))
 
 	for {
 		select {
@@ -181,7 +181,7 @@ func (l *ERC20Listener) handleLog(ctx context.Context, vLog types.Log) {
 
 	// Wait for minimum confirmations before crediting.
 	if err := l.waitForConfirmations(ctx, vLog.BlockNumber); err != nil {
-		log.Printf("[ERC20Listener] Confirmation check failed for tx=%s: %v", txHash, err)
+		slog.Error("[ERC20Listener] Confirmation check failed", "tx", txHash, "error", err)
 		return
 	}
 
@@ -200,15 +200,19 @@ func (l *ERC20Listener) handleLog(ctx context.Context, vLog types.Log) {
 
 	if depositErr != nil {
 		if depositErr == domain.ErrDuplicateTransaction {
-			log.Printf("[ERC20Listener] Duplicate tx_hash=%s, skipping", txHash)
+			slog.Warn("[ERC20Listener] Duplicate transaction hash, skipping", "tx", txHash)
 		} else {
-			log.Printf("[ERC20Listener] Failed to credit deposit tx=%s: %v", txHash, depositErr)
+			slog.Error("[ERC20Listener] Failed to credit deposit", "tx", txHash, "error", depositErr)
 		}
 		return
 	}
 
-	log.Printf("[ERC20Listener] ✅ Credited %s %s to wallet=%s (tx=%s)",
-		amountDecimal.String(), assetSymbol, cryptoAddr.WalletID, txHash)
+	slog.Info("[ERC20Listener] Deposit credited successfully",
+		"amount", amountDecimal.String(),
+		"asset", assetSymbol,
+		"wallet_id", cryptoAddr.WalletID.String(),
+		"tx", txHash,
+	)
 }
 
 // waitForConfirmations polls until the current block is at least minConfirmations ahead
@@ -225,13 +229,13 @@ func (l *ERC20Listener) waitForConfirmations(ctx context.Context, txBlock uint64
 		case <-ticker.C:
 			current, err := l.deps.AlchemyClient.GetCurrentBlock(ctx)
 			if err != nil {
-				log.Printf("[ERC20Listener] Block number check failed: %v", err)
+				slog.Error("[ERC20Listener] Block number check failed", "error", err)
 				continue
 			}
 			if current >= target {
 				return nil
 			}
-			log.Printf("[ERC20Listener] Waiting for confirmations: current=%d, target=%d", current, target)
+			slog.Info("[ERC20Listener] Waiting for confirmations", "current_block", current, "target_block", target)
 		}
 	}
 }
