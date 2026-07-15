@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
+	"github.com/bntngridp/ledger-backend/pkg/midtrans"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -120,3 +121,59 @@ func TestWithdrawFiat_BelowMinimum(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.Contains(t, err.Error(), "minimum withdrawal amount")
 }
+
+func TestWithdrawFiat_IrisFailure(t *testing.T) {
+	mockWalletRepo := new(MockWalletRepository)
+	mockTxRepo := new(MockTransactionRepository)
+
+	// Create Iris client pointing to a dummy invalid port to trigger network error (API failure)
+	dummyIrisClient := midtrans.NewIrisClient("dummy-key", "http://127.0.0.1:9999")
+	uc := NewFiatUsecase(mockWalletRepo, mockTxRepo, dummyIrisClient)
+
+	userID := uuid.New()
+	walletID := uuid.New()
+	wallet := &domain.Wallet{
+		WalletID: walletID,
+		UserID:   userID,
+	}
+
+	balance := &domain.WalletBalance{
+		WalletID:    walletID,
+		AssetSymbol: "IDR",
+		Balance:     decimal.NewFromInt(100000), // Rp 100.000
+	}
+
+	expectedTx := &domain.Transaction{
+		TransactionID:  uuid.New(),
+		SourceWalletID: &walletID,
+		Amount:         decimal.NewFromInt(60000),
+		Type:           "withdraw_fiat",
+		Status:         "pending",
+	}
+
+	mockWalletRepo.On("GetWalletByUserID", userID).Return(wallet, nil)
+	mockWalletRepo.On("GetWalletBalance", walletID, "IDR").Return(balance, nil)
+	mockTxRepo.On("ExecuteWithdrawFiatTx", walletID, decimal.NewFromInt(60000), decimal.NewFromInt(2500), "IDR", mock.Anything).
+		Return(expectedTx, nil)
+
+	// We expect RejectWithdrawFiatTx to be called on Iris API failure
+	mockTxRepo.On("RejectWithdrawFiatTx", expectedTx.TransactionID, mock.Anything).Return(nil)
+
+	req := domain.WithdrawFiatRequest{
+		Amount:        decimal.NewFromInt(60000),
+		BankCode:      "bca",
+		AccountNumber: "1234567890",
+		AccountName:   "Bintang",
+		Notes:         "tarik tunai",
+	}
+
+	resp, err := uc.WithdrawFiat(userID, req)
+
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+	assert.Contains(t, err.Error(), "external service error")
+
+	mockWalletRepo.AssertExpectations(t)
+	mockTxRepo.AssertExpectations(t)
+}
+

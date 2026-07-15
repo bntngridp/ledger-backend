@@ -242,6 +242,7 @@ func main() {
 
 		// Public Webhook route for Midtrans notification callbacks
 		api.POST("/webhooks/midtrans", webhookHandler.HandleMidtrans)
+		api.POST("/webhooks/iris", webhookHandler.HandleIris)
 
 		api.Use(middleware.JWTAuth(jwtSecret))
 		{

@@ -212,7 +212,11 @@ func (uc *cryptoUsecase) broadcastWithdrawal(txID, walletID uuid.UUID, network, 
 	// Fetch the deposit address for this wallet (used as the signing key).
 	cryptoAddr, err := uc.cryptoAddrRepo.GetAddressByWalletID(walletID, network, assetSymbol)
 	if err != nil || cryptoAddr == nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		reason := "failed to fetch deposit address"
+		if err != nil {
+			reason = err.Error()
+		}
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, reason)
 		return
 	}
 
@@ -220,46 +224,46 @@ func (uc *cryptoUsecase) broadcastWithdrawal(txID, walletID uuid.UUID, network, 
 	contractKey := network + "_" + assetSymbol
 	contractAddrStr, ok := uc.contractAddrs[contractKey]
 	if !ok {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "contract address not configured for "+contractKey)
 		return
 	}
 
 	// Decrypt private key.
 	encBytes, err := hex.DecodeString(cryptoAddr.EncPrivateKey)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to decode encrypted private key: "+err.Error())
 		return
 	}
 	privKeyBytes, err := pkgcrypto.Decrypt(encBytes, uc.encryptionKey)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to decrypt private key: "+err.Error())
 		return
 	}
 	defer pkgcrypto.ZeroBytes(privKeyBytes)
 
 	privKey, err := blockchain.PrivateKeyFromHex(hex.EncodeToString(privKeyBytes))
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to parse private key: "+err.Error())
 		return
 	}
 
 	import_ctx := context.Background()
 	chainID, err := uc.alchemyClient.GetChainID(import_ctx)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to get chain ID: "+err.Error())
 		return
 	}
 
 	fromAddr := common.HexToAddress(cryptoAddr.Address)
 	nonce, err := uc.alchemyClient.GetTransactionCount(import_ctx, fromAddr)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to get nonce: "+err.Error())
 		return
 	}
 
 	gasPrice, err := uc.alchemyClient.SuggestGasPrice(import_ctx)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to suggest gas price: "+err.Error())
 		return
 	}
 
@@ -281,12 +285,12 @@ func (uc *cryptoUsecase) broadcastWithdrawal(txID, walletID uuid.UUID, network, 
 
 	signedTx, err := blockchain.BuildSignedERC20Transfer(params)
 	if err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to build transfer tx: "+err.Error())
 		return
 	}
 
 	if err := uc.alchemyClient.SendSignedTransaction(import_ctx, signedTx); err != nil {
-		_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, "", "failed")
+		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to broadcast tx: "+err.Error())
 		return
 	}
 

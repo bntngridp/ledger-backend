@@ -160,3 +160,52 @@ func TestProcessMidtransNotification_TxNotFound(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "transaction not found")
 }
+
+func TestProcessIrisNotification_Success(t *testing.T) {
+	mockTxRepo := new(MockTransactionRepository)
+	mockMidtrans := new(MockMidtransClient)
+	uc := NewWebhookUsecase(mockTxRepo, mockMidtrans)
+
+	txUUID := uuid.New()
+	payload := []domain.IrisCallbackItem{
+		{
+			PayoutID:    123456,
+			ReferenceNo: txUUID.String(),
+			Amount:      "50000.00",
+			Status:      "completed",
+		},
+	}
+
+	mockTxRepo.On("UpdateTransactionStatus", txUUID, "success", "").Return(nil)
+
+	err := uc.ProcessIrisNotification(payload)
+
+	assert.NoError(t, err)
+	mockTxRepo.AssertExpectations(t)
+}
+
+func TestProcessIrisNotification_Failed(t *testing.T) {
+	mockTxRepo := new(MockTransactionRepository)
+	mockMidtrans := new(MockMidtransClient)
+	uc := NewWebhookUsecase(mockTxRepo, mockMidtrans)
+
+	txUUID := uuid.New()
+	reason := "Insufficient balance in partner account"
+	payload := []domain.IrisCallbackItem{
+		{
+			PayoutID:     123456,
+			ReferenceNo:  txUUID.String(),
+			Amount:       "50000.00",
+			Status:       "failed",
+			ErrorMessage: &reason,
+		},
+	}
+
+	mockTxRepo.On("RejectWithdrawFiatTx", txUUID, reason).Return(nil)
+
+	err := uc.ProcessIrisNotification(payload)
+
+	assert.NoError(t, err)
+	mockTxRepo.AssertExpectations(t)
+}
+

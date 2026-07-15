@@ -4,14 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
 	"github.com/bntngridp/ledger-backend/pkg/midtrans"
+	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
 
 type WebhookUsecase interface {
 	ProcessMidtransNotification(payload map[string]interface{}) error
+	ProcessIrisNotification(payload []domain.IrisCallbackItem) error
 }
 
 type webhookUsecase struct {
@@ -108,3 +111,36 @@ func (uc *webhookUsecase) failTransaction(txRecord *domain.Transaction, reason s
 	log.Printf("failing transaction %s. Reason: %s", txRecord.TransactionID, reason)
 	return uc.txRepo.UpdateTransactionStatus(txRecord.TransactionID, "failed", reason)
 }
+
+func (uc *webhookUsecase) ProcessIrisNotification(payload []domain.IrisCallbackItem) error {
+	for _, item := range payload {
+		txUUID, err := uuid.Parse(item.ReferenceNo)
+		if err != nil {
+			log.Printf("[Iris Webhook] invalid reference_no UUID: %s", item.ReferenceNo)
+			continue
+		}
+
+		status := strings.ToLower(item.Status)
+		log.Printf("[Iris Webhook] processing item: ref=%s, status=%s", item.ReferenceNo, status)
+
+		if status == "completed" {
+			err = uc.txRepo.UpdateTransactionStatus(txUUID, "success", "")
+		} else if status == "failed" {
+			errMsg := "Iris callback failure"
+			if item.ErrorMessage != nil {
+				errMsg = *item.ErrorMessage
+			}
+			err = uc.txRepo.RejectWithdrawFiatTx(txUUID, errMsg)
+		} else {
+			log.Printf("[Iris Webhook] unhandled status: %s for reference_no: %s", item.Status, item.ReferenceNo)
+			continue
+		}
+
+		if err != nil {
+			log.Printf("[Iris Webhook] failed to process item %s: %v", item.ReferenceNo, err)
+			return err
+		}
+	}
+	return nil
+}
+

@@ -91,8 +91,8 @@ func (uc *fiatUsecase) WithdrawFiat(userID uuid.UUID, req domain.WithdrawFiatReq
 
 		payoutResp, irisErr := uc.irisClient.CreatePayout(item)
 		if irisErr != nil {
-			// Update status to failed in database
-			_ = uc.txRepo.UpdateTransactionStatus(txRecord.TransactionID, "failed", "Iris API failure: "+irisErr.Error())
+			// Reject transaction and refund balance
+			_ = uc.txRepo.RejectWithdrawFiatTx(txRecord.TransactionID, "Iris API failure: "+irisErr.Error())
 			return nil, fmt.Errorf("%w: %v", domain.ErrExternalService, irisErr)
 		}
 

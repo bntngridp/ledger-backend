@@ -207,3 +207,21 @@ type GoogleUserProfile struct {
 	Picture       string `json:"picture"`
 	Locale        string `json:"locale"`
 }
+
+// ============================================================
+// Midtrans Iris Callback DTOs
+// ============================================================
+
+type IrisCallbackItem struct {
+	PayoutID           int64   `json:"payout_id"`
+	ReferenceNo        string  `json:"reference_no"`
+	Amount             string  `json:"amount"`
+	BeneficiaryName    string  `json:"beneficiary_name"`
+	BeneficiaryAccount string  `json:"beneficiary_account"`
+	BeneficiaryBank    string  `json:"beneficiary_bank"`
+	Status             string  `json:"status"` // "completed" or "failed"
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
+	ErrorMessage       *string `json:"error_message"`
+}
+

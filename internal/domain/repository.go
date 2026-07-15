@@ -51,9 +51,13 @@ type TransactionRepository interface {
 	// Crypto Withdrawal
 	CreatePendingCryptoWithdrawTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, toAddress, notes string) (*Transaction, error)
 	UpdateCryptoWithdrawTx(txID uuid.UUID, txHash, status string) error
+	RejectWithdrawCryptoTx(txID uuid.UUID, reason string) error
 
 	// Swap
 	ExecuteSwapTx(walletID uuid.UUID, fromAsset, toAsset string, fromAmount, toAmount, rateUsed, feeCharged decimal.Decimal) (*Transaction, error)
+
+	// Reject Fiat Withdrawal (Refund)
+	RejectWithdrawFiatTx(txID uuid.UUID, reason string) error
 }
 
 // CryptoAddressRepository defines the data access contract for on-chain deposit addresses.

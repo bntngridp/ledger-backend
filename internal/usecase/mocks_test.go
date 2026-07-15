@@ -132,6 +132,16 @@ func (m *MockTransactionRepository) ExecuteSwapTx(walletID uuid.UUID, fromAsset,
 	return args.Get(0).(*domain.Transaction), args.Error(1)
 }
 
+func (m *MockTransactionRepository) RejectWithdrawCryptoTx(txID uuid.UUID, reason string) error {
+	args := m.Called(txID, reason)
+	return args.Error(0)
+}
+
+func (m *MockTransactionRepository) RejectWithdrawFiatTx(txID uuid.UUID, reason string) error {
+	args := m.Called(txID, reason)
+	return args.Error(0)
+}
+
 type MockUserRepository struct {
 	mock.Mock
 }

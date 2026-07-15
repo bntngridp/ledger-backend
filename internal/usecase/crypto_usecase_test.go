@@ -192,3 +192,39 @@ func TestWithdrawCrypto_InvalidAddress(t *testing.T) {
 	assert.Nil(t, resp)
 	assert.True(t, errors.Is(err, domain.ErrInvalidAddress))
 }
+
+func TestWithdrawCrypto_BroadcastFailure(t *testing.T) {
+	mockWalletRepo := new(MockWalletRepository)
+	mockTxRepo := new(MockTransactionRepository)
+	mockCryptoAddrRepo := new(MockCryptoAddressRepository)
+
+	// Configure with a dummy alchemyClient to trigger broadcastWithdrawal in a goroutine
+	// Note: since it runs in a goroutine asynchronously, we will call it synchronously in the test
+	// to make assertions easy and deterministic.
+	cfg := CryptoUsecaseConfig{
+		WalletRepo:          mockWalletRepo,
+		TxRepo:              mockTxRepo,
+		CryptoAddrRepo:      mockCryptoAddrRepo,
+		EncryptionKeyBase64: testEncryptionKey,
+		AlchemyClient:       nil, // we will test the helper method directly
+		ContractAddrs:       nil,
+		Listener:            nil,
+	}
+
+	uc, err := NewCryptoUsecase(cfg)
+	assert.NoError(t, err)
+
+	txID := uuid.New()
+	walletID := uuid.New()
+
+	// Setup mock expectation: Repository RejectWithdrawCryptoTx must be called
+	mockCryptoAddrRepo.On("GetAddressByWalletID", walletID, "polygon_amoy", "USDT").Return(nil, errors.New("db error"))
+	mockTxRepo.On("RejectWithdrawCryptoTx", txID, "db error").Return(nil)
+
+	// Call the broadcastWithdrawal method directly (synchronously)
+	uc.(*cryptoUsecase).broadcastWithdrawal(txID, walletID, "polygon_amoy", "USDT", "0x1234567890123456789012345678901234567890", decimal.NewFromFloat(5.5))
+
+	mockCryptoAddrRepo.AssertExpectations(t)
+	mockTxRepo.AssertExpectations(t)
+}
+

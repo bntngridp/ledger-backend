@@ -410,3 +410,95 @@ func (r *transactionRepository) ExecuteSwapTx(walletID uuid.UUID, fromAsset, toA
 	}
 	return &transaction, nil
 }
+
+func (r *transactionRepository) RejectWithdrawCryptoTx(txID uuid.UUID, reason string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var txn domain.Transaction
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("transaction_id = ?", txID).First(&txn).Error; err != nil {
+			return fmt.Errorf("failed to lock transaction: %w", err)
+		}
+
+		if txn.Status != "pending" {
+			// Transaction has already been finalized, do nothing (idempotency)
+			return nil
+		}
+
+		if txn.SourceWalletID == nil {
+			return errors.New("source wallet ID is nil")
+		}
+
+		// Lock wallet balance
+		current, err := lockBalanceForUpdate(tx, *txn.SourceWalletID, txn.AssetSymbol)
+		if err != nil {
+			return err
+		}
+
+		// Return the funds back to user balance
+		newBalance := current.Add(txn.Amount)
+		if err := tx.Model(&domain.WalletBalance{}).Where("wallet_id = ? AND asset_symbol = ?", *txn.SourceWalletID, txn.AssetSymbol).
+			Updates(map[string]interface{}{"balance": newBalance, "last_updated": time.Now()}).Error; err != nil {
+			return fmt.Errorf("failed to refund balance: %w", err)
+		}
+
+		// Set status to failed
+		notes := txn.TransactionNotes
+		if reason != "" {
+			notes = fmt.Sprintf("%s (Failed: %s)", notes, reason)
+		}
+		return tx.Model(&domain.Transaction{}).Where("transaction_id = ?", txID).
+			Updates(map[string]interface{}{
+				"status":            "failed",
+				"transaction_notes": notes,
+			}).Error
+	})
+}
+
+func (r *transactionRepository) RejectWithdrawFiatTx(txID uuid.UUID, reason string) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var txn domain.Transaction
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("transaction_id = ?", txID).First(&txn).Error; err != nil {
+			return fmt.Errorf("failed to lock transaction: %w", err)
+		}
+
+		if txn.Status != "pending" {
+			// Transaction has already been finalized, do nothing (idempotency)
+			return nil
+		}
+
+		if txn.SourceWalletID == nil {
+			return errors.New("source wallet ID is nil")
+		}
+
+		// Lock wallet balance
+		current, err := lockBalanceForUpdate(tx, *txn.SourceWalletID, txn.AssetSymbol)
+		if err != nil {
+			return err
+		}
+
+		// Total refund is amount + admin fee
+		adminFee := decimal.Zero
+		if txn.FeeCharged != nil {
+			adminFee = *txn.FeeCharged
+		}
+		totalRefund := txn.Amount.Add(adminFee)
+
+		// Return funds
+		newBalance := current.Add(totalRefund)
+		if err := tx.Model(&domain.WalletBalance{}).Where("wallet_id = ? AND asset_symbol = ?", *txn.SourceWalletID, txn.AssetSymbol).
+			Updates(map[string]interface{}{"balance": newBalance, "last_updated": time.Now()}).Error; err != nil {
+			return fmt.Errorf("failed to refund balance: %w", err)
+		}
+
+		// Set status to failed
+		notes := txn.TransactionNotes
+		if reason != "" {
+			notes = fmt.Sprintf("%s (Failed: %s)", notes, reason)
+		}
+		return tx.Model(&domain.Transaction{}).Where("transaction_id = ?", txID).
+			Updates(map[string]interface{}{
+				"status":            "failed",
+				"transaction_notes": notes,
+			}).Error
+	})
+}
+
