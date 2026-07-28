@@ -35,8 +35,14 @@ func NewCryptoHandler(cryptoUC usecase.CryptoUsecase) *CryptoHandler {
 func (h *CryptoHandler) GetDepositAddress(c *gin.Context) {
 	network := c.Query("network")
 	assetSymbol := c.Query("asset_symbol")
+	if assetSymbol == "" {
+		assetSymbol = c.Query("asset")
+	}
+	if network == "" {
+		network = "polygon_amoy"
+	}
 
-	if network == "" || assetSymbol == "" {
+	if assetSymbol == "" {
 		response.HandleError(c, domain.ErrInvalidInput)
 		return
 	}

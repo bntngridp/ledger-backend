@@ -72,7 +72,7 @@ func NewCryptoUsecase(cfg CryptoUsecaseConfig) (CryptoUsecase, error) {
 }
 
 func (uc *cryptoUsecase) GetOrCreateDepositAddress(userID uuid.UUID, network, assetSymbol string) (*domain.DepositAddressResponse, error) {
-	network = strings.ToLower(network)
+	network = strings.ReplaceAll(strings.ToLower(network), "-", "_")
 	assetSymbol = strings.ToUpper(assetSymbol)
 
 	if !supportedNetworks[network] {
