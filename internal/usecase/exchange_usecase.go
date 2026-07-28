@@ -3,6 +3,7 @@ package usecase
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/bntngridp/ledger-backend/internal/domain"
 	"github.com/bntngridp/ledger-backend/pkg/price"
@@ -54,15 +55,53 @@ func (uc *exchangeUsecase) GetExchangeRate(pair string) (*domain.ExchangeRateRes
 		return nil, domain.ErrInvalidInput
 	}
 
-	// Fetch exchange rate from PriceCache
-	rate, fetchedAt, err := uc.priceCache.GetRate(pair)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", domain.ErrRateUnavailable, err)
+	fromAsset := parts[0]
+	toAsset := parts[1]
+
+	if fromAsset == toAsset {
+		return &domain.ExchangeRateResponse{
+			Pair:        pair,
+			Rate:        decimal.NewFromInt(1),
+			LastUpdated: time.Now(),
+		}, nil
 	}
+
+	var fromRate, toRate decimal.Decimal
+	var fetchedAt time.Time
+
+	if fromAsset == "IDR" {
+		fromRate = decimal.NewFromInt(1)
+	} else {
+		rate, t, err := uc.priceCache.GetRate(fromAsset + "_IDR")
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrRateUnavailable, err)
+		}
+		fromRate = rate
+		fetchedAt = t
+	}
+
+	if toAsset == "IDR" {
+		toRate = decimal.NewFromInt(1)
+	} else {
+		rate, t, err := uc.priceCache.GetRate(toAsset + "_IDR")
+		if err != nil {
+			return nil, fmt.Errorf("%w: %v", domain.ErrRateUnavailable, err)
+		}
+		toRate = rate
+		if fetchedAt.IsZero() || t.Before(fetchedAt) {
+			fetchedAt = t
+		}
+	}
+
+	if fetchedAt.IsZero() {
+		fetchedAt = time.Now()
+	}
+
+	crossRate := fromRate.Div(toRate)
 
 	return &domain.ExchangeRateResponse{
 		Pair:        pair,
-		Rate:        rate,
+		Rate:        crossRate,
 		LastUpdated: fetchedAt,
 	}, nil
 }

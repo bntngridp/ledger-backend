@@ -32,6 +32,13 @@ func NewExchangeHandler(exchangeUC usecase.ExchangeUsecase) *ExchangeHandler {
 func (h *ExchangeHandler) GetRate(c *gin.Context) {
 	pair := c.Query("pair")
 	if pair == "" {
+		fromAsset := c.Query("from")
+		toAsset := c.Query("to")
+		if fromAsset != "" && toAsset != "" {
+			pair = fromAsset + "_" + toAsset
+		}
+	}
+	if pair == "" {
 		response.HandleError(c, domain.ErrInvalidInput)
 		return
 	}
