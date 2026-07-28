@@ -1,24 +1,40 @@
 {
   "info": {
-    "_postman_id": "ledger-backend-go-2026-v2",
-    "name": "Ledger Backend Go",
-    "description": "E-Wallet Hybrid System REST API collection.\n\nSetup:\n1. Ensure PostgreSQL is running (`docker compose up -d`) and `go run ./cmd/api` is active on port 8080.\n2. Run requests in order: Register budi, Register andi, Login budi, Login andi, dsb.\n3. JWT tokens are auto-saved to environment variables.\n\nDummy data: budi@mail.com / andi@mail.com (password: secret123)",
+    "_postman_id": "ledger-backend-go-2026-v3",
+    "name": "Ledger Backend Go API (Full Dummy Data)",
+    "description": "Dokumentasi & Koleksi Postman Lengkap Ledger Backend Go dengan Data Dummy Siap-Pakai.\n\nInstruksi:\n1. Pastikan server backend aktif di `http://localhost:8080` (`go run ./cmd/api`).\n2. Pilih environment 'Ledger Backend Go - Local' di Postman.\n3. Jalankan request secara berurutan atau secara mandiri. Kredensial & token JWT (budi_token / andi_token) akan tersimpan secara otomatis ke variabel environment!",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
     {
-      "name": "1. Auth",
+      "name": "1. Auth & Security",
       "item": [
         {
-          "name": "Register budi",
+          "name": "Register Budi",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"budi\",\n  \"email\": \"budi@mail.com\",\n  \"password\": \"secret123\"\n}"
+              "raw": "{\n  \"username\": \"budi\",\n  \"email\": \"budi@mail.com\",\n  \"password\": \"password123\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
           },
           "event": [
             {
@@ -39,15 +55,31 @@
           ]
         },
         {
-          "name": "Register andi",
+          "name": "Register Andi",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"username\": \"andi\",\n  \"email\": \"andi@mail.com\",\n  \"password\": \"secret123\"\n}"
+              "raw": "{\n  \"username\": \"andi\",\n  \"email\": \"andi@mail.com\",\n  \"password\": \"password123\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/auth/register", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "register"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "register"
+              ]
+            }
           },
           "event": [
             {
@@ -68,15 +100,31 @@
           ]
         },
         {
-          "name": "Login budi",
+          "name": "Login Budi",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"budi@mail.com\",\n  \"password\": \"secret123\"\n}"
+              "raw": "{\n  \"email\": \"budi@mail.com\",\n  \"password\": \"password123\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
           },
           "event": [
             {
@@ -87,7 +135,7 @@
                   "if (pm.response.code === 200) {",
                   "  const json = pm.response.json();",
                   "  pm.environment.set('budi_token', json.data.token);",
-                  "  console.log('Budi token saved');",
+                  "  console.log('Budi token saved:', json.data.token);",
                   "}"
                 ]
               }
@@ -95,15 +143,31 @@
           ]
         },
         {
-          "name": "Login andi",
+          "name": "Login Andi",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"andi@mail.com\",\n  \"password\": \"secret123\"\n}"
+              "raw": "{\n  \"email\": \"andi@mail.com\",\n  \"password\": \"password123\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/auth/login", "host": ["{{base_url}}"], "path": ["api", "v1", "auth", "login"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "login"
+              ]
+            }
           },
           "event": [
             {
@@ -114,20 +178,255 @@
                   "if (pm.response.code === 200) {",
                   "  const json = pm.response.json();",
                   "  pm.environment.set('andi_token', json.data.token);",
-                  "  console.log('Andi token saved');",
+                  "  console.log('Andi token saved:', json.data.token);",
                   "}"
                 ]
               }
             }
           ]
+        },
+        {
+          "name": "Send OTP for Password Change",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/password/email-otp/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "password",
+                "email-otp",
+                "send"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"old_password\": \"password123\",\n  \"new_password\": \"password123\",\n  \"otp_code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/password/change",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "password",
+                "change"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Enable 2FA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/2fa/enable",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "enable"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Send 2FA Email OTP",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/2fa/email-otp/send",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "email-otp",
+                "send"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify 2FA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/2fa/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "verify"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Disable 2FA",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/auth/2fa/disable",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "auth",
+                "2fa",
+                "disable"
+              ]
+            }
+          }
         }
       ]
     },
     {
-      "name": "2. Wallet (Budi)",
+      "name": "2. Wallet & Dashboard (Budi)",
       "auth": {
         "type": "bearer",
-        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{budi_token}}"
+          }
+        ]
       },
       "item": [
         {
@@ -135,205 +434,605 @@
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/api/v1/wallet/dashboard", "host": ["{{base_url}}"], "path": ["api", "v1", "wallet", "dashboard"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/wallet/dashboard",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "wallet",
+                "dashboard"
+              ]
+            }
           }
         },
         {
-          "name": "TopUp 100000 (IDR)",
+          "name": "TopUp 250000 IDR (Midtrans Snap)",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 100000,\n  \"notes\": \"top up awal budi\"\n}"
+              "raw": "{\n  \"amount\": 250000,\n  \"notes\": \"Top up saldo IDR Budi via Midtrans\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/topup", "host": ["{{base_url}}"], "path": ["api", "v1", "topup"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/topup",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "topup"
+              ]
+            }
           }
         },
         {
-          "name": "Transfer 30000 to andi",
-          "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"destination_user_id\": \"{{andi_user_id}}\",\n  \"asset_symbol\": \"IDR\",\n  \"amount\": 30000,\n  \"notes\": \"bayar makan siang\"\n}"
-            },
-            "url": {"raw": "{{base_url}}/api/v1/transfer", "host": ["{{base_url}}"], "path": ["api", "v1", "transfer"]}
-          }
-        },
-        {
-          "name": "Get transaction history",
+          "name": "Get Transaction History",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/api/v1/transactions?page=1&per_page=20", "host": ["{{base_url}}"], "path": ["api", "v1", "transactions"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/transactions?page=1&per_page=20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transactions"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "per_page",
+                  "value": "20"
+                }
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "3. Wallet (Andi)",
-      "auth": {
-        "type": "bearer",
-        "bearer": [{"key": "token", "value": "{{andi_token}}"}]
-      },
+      "name": "3. Transfer P2P",
       "item": [
         {
-          "name": "Get Dashboard Summary (Andi)",
+          "name": "Transfer 50000 IDR (Budi to Andi)",
           "request": {
-            "method": "GET",
-            "header": [],
-            "url": {"raw": "{{base_url}}/api/v1/wallet/dashboard", "host": ["{{base_url}}"], "path": ["api", "v1", "wallet", "dashboard"]}
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"destination_user_id\": \"{{andi_user_id}}\",\n  \"asset_symbol\": \"IDR\",\n  \"amount\": 50000,\n  \"notes\": \"Transfer IDR bayar makan siang\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transfer"
+              ]
+            }
           }
         },
         {
-          "name": "Transfer 5000 to budi",
+          "name": "Transfer 10000 IDR (Andi back to Budi)",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{andi_token}}"
+                }
+              ]
+            },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"destination_user_id\": \"{{budi_user_id}}\",\n  \"asset_symbol\": \"IDR\",\n  \"amount\": 5000,\n  \"notes\": \"kembalian\"\n}"
+              "raw": "{\n  \"destination_user_id\": \"{{budi_user_id}}\",\n  \"asset_symbol\": \"IDR\",\n  \"amount\": 10000,\n  \"notes\": \"Transfer kembalian ke Budi\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/transfer", "host": ["{{base_url}}"], "path": ["api", "v1", "transfer"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/transfer",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "transfer"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "4. Exchange",
+      "name": "4. Instant Swap / Exchange",
       "auth": {
         "type": "bearer",
-        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{budi_token}}"
+          }
+        ]
       },
       "item": [
         {
-          "name": "Get USDT_IDR Rate",
+          "name": "Get Rate (USDT_IDR)",
           "request": {
             "method": "GET",
             "header": [],
-            "url": "{{base_url}}/api/v1/exchange/rate?pair=USDT_IDR"
+            "url": {
+              "raw": "{{base_url}}/api/v1/exchange/rate?pair=USDT_IDR",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "exchange",
+                "rate"
+              ],
+              "query": [
+                {
+                  "key": "pair",
+                  "value": "USDT_IDR"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Rate (BTC_IDR)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/exchange/rate?pair=BTC_IDR",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "exchange",
+                "rate"
+              ],
+              "query": [
+                {
+                  "key": "pair",
+                  "value": "BTC_IDR"
+                }
+              ]
+            }
           }
         },
         {
           "name": "Swap 50000 IDR to USDT",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"from_asset\": \"IDR\",\n  \"to_asset\": \"USDT\",\n  \"amount\": 50000\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/exchange/swap", "host": ["{{base_url}}"], "path": ["api", "v1", "exchange", "swap"]}
-          }
-        }
-      ]
-    },
-    {
-      "name": "5. Crypto",
-      "auth": {
-        "type": "bearer",
-        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
-      },
-      "item": [
-        {
-          "name": "Get or Create Deposit Address (USDT)",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": "{{base_url}}/api/v1/crypto/address?network=polygon_amoy&asset_symbol=USDT"
+            "url": {
+              "raw": "{{base_url}}/api/v1/exchange/swap",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "exchange",
+                "swap"
+              ]
+            }
           }
         },
         {
-          "name": "Withdraw Crypto",
+          "name": "Swap 2.5 USDT to IDR",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"asset_symbol\": \"USDT\",\n  \"network\": \"polygon_amoy\",\n  \"to_address\": \"0x1234567890123456789012345678901234567890\",\n  \"amount\": 1.5,\n  \"notes\": \"withdrawal test\"\n}"
+              "raw": "{\n  \"from_asset\": \"USDT\",\n  \"to_asset\": \"IDR\",\n  \"amount\": 2.5\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/crypto/withdraw", "host": ["{{base_url}}"], "path": ["api", "v1", "crypto", "withdraw"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/exchange/swap",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "exchange",
+                "swap"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "6. Fiat Withdrawal",
+      "name": "5. Crypto Wallet",
       "auth": {
         "type": "bearer",
-        "bearer": [{"key": "token", "value": "{{budi_token}}"}]
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{budi_token}}"
+          }
+        ]
       },
       "item": [
         {
-          "name": "Withdraw Fiat to Bank Account",
+          "name": "Get / Create Deposit Address (USDT)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/crypto/address?network=polygon_amoy&asset_symbol=USDT",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "crypto",
+                "address"
+              ],
+              "query": [
+                {
+                  "key": "network",
+                  "value": "polygon_amoy"
+                },
+                {
+                  "key": "asset_symbol",
+                  "value": "USDT"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Withdraw Crypto (USDT)",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"amount\": 50000,\n  \"bank_code\": \"bca\",\n  \"account_number\": \"1234567890\",\n  \"account_name\": \"Budi\",\n  \"notes\": \"withdraw test\"\n}"
+              "raw": "{\n  \"asset_symbol\": \"USDT\",\n  \"network\": \"polygon_amoy\",\n  \"to_address\": \"0x70997970C51812dc3A010C7d01b50e0d17dc79C8\",\n  \"amount\": 1.5,\n  \"notes\": \"Penarikan USDT ke dompet eksternal\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/fiat/withdraw", "host": ["{{base_url}}"], "path": ["api", "v1", "fiat", "withdraw"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/crypto/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "crypto",
+                "withdraw"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "7. Webhooks",
+      "name": "6. Fiat Withdrawal (Bank & E-Wallet)",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{budi_token}}"
+          }
+        ]
+      },
       "item": [
         {
-          "name": "Midtrans Payment Webhook",
+          "name": "Withdraw Fiat to Bank Account (BCA)",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"order_id\": \"TOPUP-IDR-12345\",\n  \"status_code\": \"200\",\n  \"gross_amount\": \"100000.00\",\n  \"signature_key\": \"dummy_signature\",\n  \"transaction_status\": \"settlement\"\n}"
+              "raw": "{\n  \"amount\": 50000,\n  \"bank_code\": \"bca\",\n  \"account_number\": \"1234567890\",\n  \"account_name\": \"Budi\",\n  \"notes\": \"Penarikan ke Rekening BCA\"\n}"
             },
-            "url": {"raw": "{{base_url}}/api/v1/webhooks/midtrans", "host": ["{{base_url}}"], "path": ["api", "v1", "webhooks", "midtrans"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/fiat/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fiat",
+                "withdraw"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Withdraw Fiat to E-Wallet (DANA)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 50000,\n  \"bank_code\": \"dana\",\n  \"account_number\": \"081234567890\",\n  \"account_name\": \"Budi DANA\",\n  \"notes\": \"Penarikan ke DANA E-Wallet\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/fiat/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "fiat",
+                "withdraw"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Notifications Center",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{budi_token}}"
+          }
+        ]
+      },
+      "item": [
+        {
+          "name": "Get All Notifications",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/unread-count",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "unread-count"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications as Read",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/v1/notifications/read-all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "notifications",
+                "read-all"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Webhooks (Midtrans & Iris)",
+      "item": [
+        {
+          "name": "Midtrans Snap Payment Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"TOPUP-IDR-12345\",\n  \"status_code\": \"200\",\n  \"gross_amount\": \"250000.00\",\n  \"signature_key\": \"dummy_signature\",\n  \"transaction_status\": \"settlement\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/v1/webhooks/midtrans",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "midtrans"
+              ]
+            }
           }
         },
         {
           "name": "Midtrans Iris Payout Webhook",
           "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "[\n  {\n    \"payout_id\": 1234567,\n    \"reference_no\": \"{{budi_withdraw_tx_id}}\",\n    \"amount\": \"50000.00\",\n    \"status\": \"completed\"\n  }\n]"
+              "raw": "[\n  {\n    \"payout_id\": 1234567,\n    \"reference_no\": \"WD-IDR-12345\",\n    \"amount\": \"50000.00\",\n    \"status\": \"completed\"\n  }\n]"
             },
-            "url": {"raw": "{{base_url}}/api/v1/webhooks/iris", "host": ["{{base_url}}"], "path": ["api", "v1", "webhooks", "iris"]}
+            "url": {
+              "raw": "{{base_url}}/api/v1/webhooks/iris",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "webhooks",
+                "iris"
+              ]
+            }
           }
         }
       ]
     },
     {
-      "name": "8. Health & Docs",
+      "name": "9. System Health & Docs",
       "item": [
         {
           "name": "System Health Check",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/health", "host": ["{{base_url}}"], "path": ["health"]}
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
           }
         },
         {
-          "name": "Ping (Protected)",
+          "name": "Protected Ping Check",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{budi_token}}"
+                }
+              ]
+            },
             "method": "GET",
-            "header": [{"key": "Authorization", "value": "Bearer {{budi_token}}"}],
-            "url": {"raw": "{{base_url}}/ping", "host": ["{{base_url}}"], "path": ["ping"]}
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ping",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ping"
+              ]
+            }
           }
         },
         {
-          "name": "Swagger UI",
+          "name": "Swagger UI HTML",
           "request": {
             "method": "GET",
             "header": [],
-            "url": {"raw": "{{base_url}}/swagger/index.html", "host": ["{{base_url}}"], "path": ["swagger", "index.html"]}
+            "url": {
+              "raw": "{{base_url}}/swagger/index.html",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "swagger",
+                "index.html"
+              ]
+            }
           }
         }
       ]

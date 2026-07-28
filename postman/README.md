@@ -1,77 +1,74 @@
-# API Documentation (Postman + Swagger)
+# Dokumentasi API (Postman Collection & Swagger UI)
 
-Proyek ini menyediakan dokumentasi API dalam dua format.
+Proyek **Ledger Backend Go** menyediakan dua jenis dokumentasi API interaktif yang sudah dilengkapi dengan **Data Dummy Siap-Pakai (Ready to Run)**.
 
-## 1. Swagger UI (Interaktif)
+---
 
-Jalankan server, lalu buka browser:
+## 1. 🌐 Swagger UI (Dokumentasi Interaktif Web)
 
-```
+Akses Swagger UI melalui browser saat server backend aktif (`http://localhost:8080`):
+
+```text
 http://localhost:8080/swagger/index.html
 ```
 
-- Tombol **Authorize** (🔒) di kanan atas → masukkan `Bearer <token>` (token didapat dari endpoint login).
-- Tiap endpoint bisa di-try langsung dari UI (Try it out).
-- Schema (request/response model) auto-generated dari struct Go + annotation.
+### Fitur Swagger UI:
+- **Autentikasi Bearer JWT**: Klik tombol **Authorize (🔒)** di sudut kanan atas $\rightarrow$ masukkan `Bearer <token>` (token didapat dari endpoint Login Budi/Andi).
+- **Try It Out**: Semua endpoint mendukung eksekusi langsung dari browser dengan contoh schema request/response yang lengkap.
+- **OpenAPI Schema (Raw JSON)**: Dapat diakses di `http://localhost:8080/swagger/doc.json`.
 
-Endpoint JSON mentah (untuk import ke tooling lain):
+---
 
-```
-http://localhost:8080/swagger/doc.json
-```
+## 2. 🚀 Postman Collection (Siap-Pakai dengan Dummy Data)
 
-## 2. Postman Collection
+Collection Postman telah dirancang sedemikian rupa sehingga **semua request sudah terisi data dummy secara otomatis**, dan token JWT (`budi_token` & `andi_token`) serta User ID akan tersimpan otomatis ke variabel environment tanpa perlu input manual.
 
-Import dua file ini ke Postman:
+### File Postman yang Disediakan:
 
-| File | Tipe |
-|------|------|
-| `postman/ledger-backend-go.postman_collection.json` | Collection (semua endpoint) |
-| `postman/ledger-backend-go.postman_environment.json` | Environment (`base_url`, dll.) |
+| File | Fungsi |
+| :--- | :--- |
+| [`postman/ledger-backend-go.postman_collection.json`](file:///Users/bintang/Documents/Github/Ledger/ledger-backend/postman/ledger-backend-go.postman_collection.json) | Koleksi endpoint API lengkap (Auth, Wallet, Transfer, Swap, Crypto, Fiat Withdraw, Notifikasi, Webhooks) |
+| [`postman/ledger-backend-go.postman_environment.json`](file:///Users/bintang/Documents/Github/Ledger/ledger-backend/postman/ledger-backend-go.postman_environment.json) | Variabel Environment (`base_url`, `budi_token`, `andi_user_id`, dll.) |
 
-### Cara Import
+---
 
-1. Buka Postman → **Import** → drag & drop kedua file.
-2. Pilih environment **"Ledger Backend Go - Local"** di kanan atas.
-3. Pastikan `JWT_SECRET` di `.env` server sudah ter-set.
+### 📥 Cara Import & Menjalankan di Postman
 
-### Alur Penggunaan (Recommended)
+1. Buka aplikasi Postman.
+2. Klik tombol **Import** $\rightarrow$ drag & drop file `ledger-backend-go.postman_collection.json` dan `ledger-backend-go.postman_environment.json`.
+3. Pilih environment **"Ledger Backend Go - Local"** di dropdown kanan atas Postman.
+4. **Tinggal Klik "Send"!** Seluruh request sudah dilengkapi contoh data dummy valid:
 
-Jalankan request **berurutan** dalam folder:
+### 📋 Data Dummy Default yang Digunakan:
 
-1. **1. Auth** → Register budi & andi → Login budi & andi
-   - Login otomatis menyimpan token ke environment (`budi_token`, `andi_token`).
-   - Register otomatis menyimpan `user_id` ke environment.
-2. **2. Wallet (Budi)** → Get Dashboard → TopUp (IDR) → Transfer (IDR) → History
-3. **3. Wallet (Andi)** → Get Dashboard → Transfer balik ke budi
-4. **4. Exchange** → Get Rate (USDT_IDR) → Swap IDR to USDT (mengonversi Rupiah ke USDT dengan fee 0.5%)
-5. **5. Crypto** → Get/Create Deposit Address (mengenerate EVM address) → Withdraw Crypto
-6. **6. Fiat Withdrawal** → Withdraw Fiat ke Rekening Bank (disbursement)
-7. **7. Webhooks** → Simulasi callback pembayaran Midtrans Snap & callback payout Iris
-8. **8. Health & Docs** → Ping, Swagger UI, System Health Check (`GET /health`)
+| Akun / Variabel | Email / Parameter Dummy | Password / Value |
+| :--- | :--- | :--- |
+| **User Budi** | `budi@mail.com` | `password123` |
+| **User Andi** | `andi@mail.com` | `password123` |
+| **Nominal Top-Up** | `250000` (IDR) | Midtrans Snap Integration |
+| **Nominal Transfer P2P** | `50000` (IDR) | Budi $\rightarrow$ Andi |
+| **Instant Swap** | `50000` IDR $\rightarrow$ USDT | Rates recalculation |
+| **Withdrawal Fiat** | Bank BCA (`1234567890`) / DANA (`081234567890`) | Nominal: Rp 50.000 |
+| **Withdrawal Crypto** | Polygon Amoy (`0x70997970C51812dc3A010C7d01b50e0d17dc79C8`) | Nominal: 1.5 USDT |
 
+---
 
-### Dummy Data
+### 🔄 Alur Eksekusi Koleksi yang Direkomendasikan:
 
-| Field | Value |
-|-------|-------|
-| budi email | `budi@mail.com` |
-| budi password | `secret123` |
-| andi email | `andi@mail.com` |
-| andi password | `secret123` |
-
-### Auto Variable
-
-Environment otomatis terisi:
-
-| Variable | Sumber |
-|----------|--------|
-| `budi_token` | dari response Login budi (`data.token`) |
-| `andi_token` | dari response Login andi (`data.token`) |
-| `budi_user_id` | dari response Register budi (`data.user_id`) |
-| `andi_user_id` | dari response Register andi (`data.user_id`) |
-
-### Catatan
-
-- Tiap kali server di-restart, DB di-truncate → register & login ulang dari awal.
-- Kalau endpoint register gagal karena user sudah ada (409), tetap bisa langsung login (token lama invalidated setelah restart, jadi login lagi aman).
+1. **`1. Auth & Security`**:
+   - `Register Budi` $\rightarrow$ `Register Andi` $\rightarrow$ `Login Budi` $\rightarrow$ `Login Andi`
+   *(Token JWT `budi_token` & `andi_token` otomatis tersimpan ke environment).*
+2. **`2. Wallet & Dashboard (Budi)`**:
+   - `Get Dashboard Summary` $\rightarrow$ `TopUp 250000 IDR (Midtrans Snap)` $\rightarrow$ `Get Transaction History`.
+3. **`3. Transfer P2P`**:
+   - `Transfer 50000 IDR (Budi to Andi)` $\rightarrow$ `Transfer 10000 IDR (Andi back to Budi)`.
+4. **`4. Instant Swap / Exchange`**:
+   - `Get Rate (USDT_IDR)` $\rightarrow$ `Swap 50000 IDR to USDT`.
+5. **`5. Crypto Wallet`**:
+   - `Get / Create Deposit Address (USDT)` $\rightarrow$ `Withdraw Crypto (USDT)`.
+6. **`6. Fiat Withdrawal (Bank & E-Wallet)`**:
+   - `Withdraw Fiat to Bank Account (BCA)` $\rightarrow$ `Withdraw Fiat to E-Wallet (DANA)`.
+7. **`7. Notifications Center`**:
+   - `Get All Notifications` $\rightarrow$ `Get Unread Count` $\rightarrow$ `Mark All Notifications as Read`.
+8. **`8. Webhooks (Midtrans & Iris)`**:
+   - Simulasi callback notifikasi pembayaran Midtrans Snap & Iris Payout.

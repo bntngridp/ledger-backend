@@ -1,5 +1,21 @@
 basePath: /
 definitions:
+  domain.ChangePasswordRequest:
+    properties:
+      email_otp:
+        type: string
+      new_password:
+        minLength: 6
+        type: string
+      old_password:
+        type: string
+      two_factor_code:
+        type: string
+    required:
+    - email_otp
+    - new_password
+    - old_password
+    type: object
   domain.CryptoWithdrawRequest:
     properties:
       amount:
@@ -57,8 +73,8 @@ definitions:
     properties:
       code:
         type: string
-    required:
-    - code
+      recovery_code:
+        type: string
     type: object
   domain.Enable2FAResponse:
     properties:
@@ -357,7 +373,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Disables 2FA by validating the current TOTP code.
+      description: Disables 2FA by validating the current TOTP code, Recovery Code,
+        or Email OTP.
       parameters:
       - description: Disable 2FA payload
         in: body
@@ -383,6 +400,20 @@ paths:
       security:
       - BearerAuth: []
       summary: Disable 2FA TOTP
+      tags:
+      - auth
+  /auth/2fa/email-otp/send:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP sent to email
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Send Email OTP for 2FA Deactivation/Recovery
       tags:
       - auth
   /auth/2fa/enable:
@@ -569,6 +600,53 @@ paths:
           schema:
             $ref: '#/definitions/domain.ErrorResponse'
       summary: Login user
+      tags:
+      - auth
+  /auth/password/change:
+    post:
+      consumes:
+      - application/json
+      description: Updates user password with old password, email OTP, and optional
+        2FA verification.
+      parameters:
+      - description: Change Password payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad request / Invalid verification
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change User Password
+      tags:
+      - auth
+  /auth/password/email-otp/send:
+    post:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OTP sent to email
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+      security:
+      - BearerAuth: []
+      summary: Send Email OTP for Change Password Verification
       tags:
       - auth
   /auth/register:
@@ -826,6 +904,138 @@ paths:
       summary: Withdraw Rupiah to bank account
       tags:
       - fiat
+  /notifications:
+    get:
+      description: Returns paginated in-app notifications for the authenticated user
+        along with unread count.
+      parameters:
+      - description: Page number (default 1)
+        in: query
+        name: page
+        type: integer
+      - description: Items per page (default 20, max 50)
+        in: query
+        name: per_page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List notifications
+      tags:
+      - notifications
+  /notifications/{id}:
+    delete:
+      description: Permanently removes a notification (must belong to the authenticated
+        user).
+      parameters:
+      - description: Notification ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete notification
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    patch:
+      description: Marks a specific notification as read (must belong to the authenticated
+        user).
+      parameters:
+      - description: Notification ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark notification as read
+      tags:
+      - notifications
+  /notifications/read-all:
+    patch:
+      description: Marks all notifications for the authenticated user as read.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Mark all notifications as read
+      tags:
+      - notifications
+  /notifications/unread-count:
+    get:
+      description: Returns the number of unread notifications for the authenticated
+        user.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.SuccessResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/domain.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get unread notification count
+      tags:
+      - notifications
   /topup:
     post:
       consumes:
