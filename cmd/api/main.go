@@ -170,6 +170,7 @@ func main() {
 	walletRepo := repo.NewWalletRepository(db)
 	txRepo := repo.NewTransactionRepository(db)
 	cryptoAddrRepo := repo.NewCryptoAddressRepository(db)
+	notifRepo := repo.NewNotificationRepository(db)
 
 	contractAssets := make(map[string]string)
 	contractDecimals := make(map[string]int)
@@ -229,6 +230,7 @@ func main() {
 
 	exchangeUC := usecase.NewExchangeUsecase(walletRepo, txRepo, priceCache, swapFee)
 	fiatUC := usecase.NewFiatUsecase(walletRepo, txRepo, irisClient)
+	notifUC := usecase.NewNotificationUsecase(notifRepo)
 
 	authHandler := delivery.NewAuthHandler(authUC, jwtSecret, expiryHours)
 	transferHandler := delivery.NewTransferHandler(transferUC)
@@ -237,6 +239,7 @@ func main() {
 	cryptoHandler := delivery.NewCryptoHandler(cryptoUC)
 	exchangeHandler := delivery.NewExchangeHandler(exchangeUC)
 	fiatHandler := delivery.NewFiatHandler(fiatUC)
+	notifHandler := delivery.NewNotificationHandler(notifUC)
 
 	googleConfig := &oauth2.Config{
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -301,6 +304,13 @@ func main() {
 			api.POST("/exchange/swap", limiter, exchangeHandler.Swap)
 
 			api.POST("/fiat/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), fiatHandler.WithdrawFiat)
+
+			// Notifications
+			api.GET("/notifications", notifHandler.GetNotifications)
+			api.GET("/notifications/unread-count", notifHandler.GetUnreadCount)
+			api.PATCH("/notifications/read-all", notifHandler.MarkAllAsRead)
+			api.PATCH("/notifications/:id/read", notifHandler.MarkAsRead)
+			api.DELETE("/notifications/:id", notifHandler.DeleteNotification)
 		}
 	}
 

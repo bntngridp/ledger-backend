@@ -62,6 +62,22 @@ type TransactionRepository interface {
 	RejectWithdrawFiatTx(txID uuid.UUID, reason string) error
 }
 
+// NotificationRepository defines the data access contract for in-app notifications.
+type NotificationRepository interface {
+	// CreateNotification persists a new notification for a user.
+	CreateNotification(n *Notification) error
+	// GetNotificationsByUserID returns paginated notifications for a user (newest first).
+	GetNotificationsByUserID(userID uuid.UUID, page, perPage int) ([]Notification, int64, error)
+	// MarkAsRead marks a single notification as read (must belong to user).
+	MarkAsRead(notificationID, userID uuid.UUID) error
+	// MarkAllAsRead marks all notifications for a user as read.
+	MarkAllAsRead(userID uuid.UUID) error
+	// GetUnreadCount returns the number of unread notifications for a user.
+	GetUnreadCount(userID uuid.UUID) (int64, error)
+	// DeleteNotification removes a single notification (must belong to user).
+	DeleteNotification(notificationID, userID uuid.UUID) error
+}
+
 // CryptoAddressRepository defines the data access contract for on-chain deposit addresses.
 type CryptoAddressRepository interface {
 	// GetAddressByWalletID retrieves the deposit address for a given wallet, network, and asset.

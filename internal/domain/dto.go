@@ -241,6 +241,25 @@ type GoogleUserProfile struct {
 }
 
 // ============================================================
+// Notification DTOs
+// ============================================================
+
+type NotificationItem struct {
+	NotificationID string    `json:"notification_id"`
+	Type           string    `json:"type"`
+	Title          string    `json:"title"`
+	Body           string    `json:"body"`
+	IsRead         bool      `json:"is_read"`
+	CreatedAt      time.Time `json:"created_at"`
+}
+
+type NotificationListResponse struct {
+	Notifications []NotificationItem `json:"notifications"`
+	Meta          PaginationMeta     `json:"meta"`
+	UnreadCount   int64              `json:"unread_count"`
+}
+
+// ============================================================
 // Midtrans Iris Callback DTOs
 // ============================================================
 

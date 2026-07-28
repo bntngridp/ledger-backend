@@ -65,7 +65,7 @@ func RunMigrations(db *gorm.DB) error {
 		return fmt.Errorf("failed to create uuid-ossp extension: %w", err)
 	}
 
-	if err := db.AutoMigrate(&domain.User{}, &domain.Wallet{}, &domain.WalletBalance{}, &domain.Transaction{}, &domain.CryptoAddress{}); err != nil {
+	if err := db.AutoMigrate(&domain.User{}, &domain.Wallet{}, &domain.WalletBalance{}, &domain.Transaction{}, &domain.CryptoAddress{}, &domain.Notification{}); err != nil {
 		return fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
