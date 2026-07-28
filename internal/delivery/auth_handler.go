@@ -371,3 +371,104 @@ func (h *AuthHandler) Login2FA(c *gin.Context) {
 		Data:    resp,
 	})
 }
+
+// SendChangePasswordEmailOTP godoc
+// @Summary      Send Email OTP for Change Password Verification
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} domain.SuccessResponse "OTP sent to email"
+// @Router       /auth/password/email-otp/send [post]
+func (h *AuthHandler) SendChangePasswordEmailOTP(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	if err := h.authUC.SendChangePasswordEmailOTP(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Kode OTP verifikasi telah dikirimkan ke email Anda",
+	})
+}
+
+// ChangePassword godoc
+// @Summary      Change User Password
+// @Description  Updates user password with old password, email OTP, and optional 2FA verification.
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body domain.ChangePasswordRequest true "Change Password payload"
+// @Success      200 {object} domain.SuccessResponse "Password changed successfully"
+// @Failure      400 {object} domain.ErrorResponse "Bad request / Invalid verification"
+// @Failure      401 {object} domain.ErrorResponse "Unauthorized"
+// @Router       /auth/password/change [post]
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	var req domain.ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: "invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authUC.ChangePassword(userID, req); err != nil {
+		if err == domain.ErrInvalid2FACode {
+			c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+				Status:  http.StatusBadRequest,
+				Message: err.Error(),
+			})
+			return
+		}
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Kata sandi berhasil diperbarui",
+	})
+}

@@ -14,6 +14,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/pquerna/otp/totp"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (uc *authUsecase) Generate2FASecret(userID uuid.UUID) (*domain.Enable2FAResponse, error) {
@@ -323,6 +324,101 @@ func (uc *authUsecase) Verify2FACode(userID uuid.UUID, code string) error {
 
 	if !totp.Validate(code, secretStr) {
 		return domain.ErrInvalid2FACode
+	}
+
+	return nil
+}
+
+func (uc *authUsecase) SendChangePasswordEmailOTP(userID uuid.UUID) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return domain.ErrNotFound
+	}
+
+	otpCode := email.GenerateNumericOTP()
+
+	uc.otpMu.Lock()
+	uc.emailOTPs[userID] = emailOTPEntry{
+		code:      otpCode,
+		expiresAt: time.Now().Add(5 * time.Minute),
+	}
+	uc.otpMu.Unlock()
+
+	if uc.emailService != nil {
+		uc.emailService.SendOTPEmailAsync(user.Email, otpCode, "Verifikasi Ubah Kata Sandi Ledger")
+	}
+	return nil
+}
+
+func (uc *authUsecase) ChangePassword(userID uuid.UUID, req domain.ChangePasswordRequest) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return domain.ErrNotFound
+	}
+
+	if user.Password == nil {
+		return errors.New("akun terhubung via OAuth Google, tidak memiliki kata sandi lama")
+	}
+
+	// 1. Verify current/old password
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.Password), []byte(req.OldPassword)); err != nil {
+		return errors.New("kata sandi lama tidak sesuai")
+	}
+
+	// 2. Verify Email OTP
+	uc.otpMu.Lock()
+	otpEntry, exists := uc.emailOTPs[userID]
+	if exists {
+		delete(uc.emailOTPs, userID)
+	}
+	uc.otpMu.Unlock()
+
+	if !exists || time.Now().After(otpEntry.expiresAt) || otpEntry.code != req.EmailOTP {
+		return errors.New("kode OTP email tidak valid atau sudah kadaluwarsa")
+	}
+
+	// 3. Verify 2FA TOTP code if 2FA is enabled
+	if user.TwoFactorEnabled {
+		if req.TwoFactorCode == "" {
+			return errors.New("kode 2FA Authenticator wajib diisi karena 2FA aktif pada akun Anda")
+		}
+		if user.TwoFactorSecret == nil {
+			return errors.New("2FA secret missing")
+		}
+
+		encBytes, err := hex.DecodeString(*user.TwoFactorSecret)
+		if err != nil {
+			return fmt.Errorf("failed to decode encrypted secret: %w", err)
+		}
+
+		decrypted, err := pkgcrypto.Decrypt(encBytes, uc.encryptionKey)
+		if err != nil {
+			return fmt.Errorf("failed to decrypt secret: %w", err)
+		}
+		secretStr := string(decrypted)
+
+		if !totp.Validate(req.TwoFactorCode, secretStr) {
+			return domain.ErrInvalid2FACode
+		}
+	}
+
+	// 4. Hash new password & update
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash new password: %w", err)
+	}
+
+	hashedPasswordStr := string(hashedPassword)
+	user.Password = &hashedPasswordStr
+
+	if err := uc.userRepo.UpdateUser(user); err != nil {
+		return fmt.Errorf("failed to update password: %w", err)
 	}
 
 	return nil

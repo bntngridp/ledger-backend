@@ -62,6 +62,13 @@ type Login2FARequest struct {
 	Code         string `json:"code" binding:"required,len=6"`
 }
 
+type ChangePasswordRequest struct {
+	OldPassword   string `json:"old_password" binding:"required"`
+	NewPassword   string `json:"new_password" binding:"required,min=6"`
+	EmailOTP      string `json:"email_otp" binding:"required,len=6"`
+	TwoFactorCode string `json:"two_factor_code,omitempty"`
+}
+
 // ============================================================
 // Wallet / Dashboard DTOs
 // ============================================================

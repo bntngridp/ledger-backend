@@ -291,6 +291,9 @@ func main() {
 			api.POST("/auth/2fa/disable", authHandler.Disable2FA)
 			api.POST("/auth/2fa/email-otp/send", authHandler.Send2FAEmailOTP)
 
+			api.POST("/auth/password/email-otp/send", authHandler.SendChangePasswordEmailOTP)
+			api.POST("/auth/password/change", authHandler.ChangePassword)
+
 			api.GET("/crypto/address", cryptoHandler.GetDepositAddress)
 			api.POST("/crypto/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), cryptoHandler.WithdrawCrypto)
 

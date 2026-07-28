@@ -27,6 +27,8 @@ type AuthUsecase interface {
 	Enable2FA(userID uuid.UUID, code string) ([]string, error)
 	Disable2FA(userID uuid.UUID, req domain.Disable2FARequest) error
 	Send2FAEmailOTP(userID uuid.UUID) error
+	SendChangePasswordEmailOTP(userID uuid.UUID) error
+	ChangePassword(userID uuid.UUID, req domain.ChangePasswordRequest) error
 	Verify2FALogin(preAuthToken, code, jwtSecret string, expiryHours int) (*domain.LoginResponse, error)
 	Verify2FACode(userID uuid.UUID, code string) error
 }

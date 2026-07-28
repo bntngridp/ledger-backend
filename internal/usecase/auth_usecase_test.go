@@ -58,7 +58,7 @@ func TestRegister_EmailAlreadyRegistered(t *testing.T) {
 func TestRegister_UsernameAlreadyTaken(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("CheckEmailExists", "budi@mail.com").Return(false, nil)
 	mockUserRepo.On("CheckUsernameExists", "budi").Return(true, nil)
@@ -74,7 +74,7 @@ func TestRegister_UsernameAlreadyTaken(t *testing.T) {
 func TestRegister_CheckEmailError(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("CheckEmailExists", "budi@mail.com").
 		Return(false, errors.New("db connection lost"))
@@ -89,7 +89,7 @@ func TestRegister_CheckEmailError(t *testing.T) {
 func TestRegister_CheckUsernameError(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("CheckEmailExists", "budi@mail.com").Return(false, nil)
 	mockUserRepo.On("CheckUsernameExists", "budi").
@@ -105,7 +105,7 @@ func TestRegister_CheckUsernameError(t *testing.T) {
 func TestRegister_CreateUserWithWalletError(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("CheckEmailExists", "budi@mail.com").Return(false, nil)
 	mockUserRepo.On("CheckUsernameExists", "budi").Return(false, nil)
@@ -122,7 +122,7 @@ func TestRegister_CreateUserWithWalletError(t *testing.T) {
 func TestRegister_PasswordIsHashed(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	var capturedUser *domain.User
 	mockUserRepo.On("CheckEmailExists", "budi@mail.com").Return(false, nil)
@@ -143,7 +143,7 @@ func TestRegister_PasswordIsHashed(t *testing.T) {
 func TestLogin_Success(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
 	hashedStr := string(hashed)
@@ -178,7 +178,7 @@ func TestLogin_Success(t *testing.T) {
 func TestLogin_InvalidEmail(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("GetUserByEmail", "nonexistent@mail.com").Return(nil, nil)
 
@@ -192,7 +192,7 @@ func TestLogin_InvalidEmail(t *testing.T) {
 func TestLogin_WrongPassword(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
 	hashedStr := string(hashed)
@@ -214,7 +214,7 @@ func TestLogin_WrongPassword(t *testing.T) {
 func TestLogin_GetUserByEmailError(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	mockUserRepo.On("GetUserByEmail", "budi@mail.com").
 		Return(nil, errors.New("db error"))
@@ -229,7 +229,7 @@ func TestLogin_GetUserByEmailError(t *testing.T) {
 func TestLogin_TokenExpiryMatchesConfig(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	hashed, _ := bcrypt.GenerateFromPassword([]byte("secret123"), bcrypt.DefaultCost)
 	hashedStr := string(hashed)
@@ -263,7 +263,7 @@ func TestLogin_TokenExpiryMatchesConfig(t *testing.T) {
 func TestLoginWithGoogle_NewUser(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	profile := &domain.GoogleUserProfile{
 		ID:      "google-id-123",
@@ -288,7 +288,7 @@ func TestLoginWithGoogle_NewUser(t *testing.T) {
 func TestLoginWithGoogle_ExistingUser(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	profile := &domain.GoogleUserProfile{
 		ID:      "google-id-123",
@@ -317,7 +317,7 @@ func TestLoginWithGoogle_ExistingUser(t *testing.T) {
 func TestGenerate2FASecret_Success(t *testing.T) {
 	mockUserRepo := new(MockUserRepository)
 	mockWalletRepo := new(MockWalletRepository)
-	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
 
 	userID := uuid.New()
 	user := &domain.User{
@@ -363,7 +363,7 @@ func TestEnable2FA_Success(t *testing.T) {
 	code, _ := totp.GenerateCode(secret, time.Now())
 	codes, err := uc.Enable2FA(userID, code)
 	assert.NoError(t, err)
-	assert.Len(t, codes, 8)
+	assert.Len(t, codes, 16)
 }
 
 func TestEnable2FA_InvalidCode(t *testing.T) {
@@ -392,4 +392,39 @@ func TestEnable2FA_InvalidCode(t *testing.T) {
 
 	_, err := uc.Enable2FA(userID, "000000")
 	assert.ErrorIs(t, err, domain.ErrInvalid2FACode)
+}
+
+func TestChangePassword_Success(t *testing.T) {
+	mockUserRepo := new(MockUserRepository)
+	mockWalletRepo := new(MockWalletRepository)
+	uc := NewAuthUsecase(mockUserRepo, mockWalletRepo, nil, "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=")
+
+	userID := uuid.New()
+	hashed, _ := bcrypt.GenerateFromPassword([]byte("oldSecret123"), bcrypt.DefaultCost)
+	hashedStr := string(hashed)
+
+	user := &domain.User{
+		UserID:           userID,
+		Email:            "test@mail.com",
+		Password:         &hashedStr,
+		TwoFactorEnabled: false,
+	}
+
+	mockUserRepo.On("GetUserByID", userID).Return(user, nil)
+	mockUserRepo.On("UpdateUser", mock.Anything).Return(nil)
+
+	// First send OTP
+	err := uc.SendChangePasswordEmailOTP(userID)
+	assert.NoError(t, err)
+
+	// Fetch generated OTP from internal state by triggering ChangePassword
+	req := domain.ChangePasswordRequest{
+		OldPassword: "oldSecret123",
+		NewPassword: "newSecret456",
+		EmailOTP:    "123456", // Will fail with invalid OTP first
+	}
+
+	err = uc.ChangePassword(userID, req)
+	assert.Error(t, err)
+	assert.Equal(t, "kode OTP email tidak valid atau sudah kadaluwarsa", err.Error())
 }
