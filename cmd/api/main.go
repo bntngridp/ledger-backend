@@ -302,6 +302,10 @@ func main() {
 			api.POST("/auth/pin/setup", authHandler.SetupPIN)
 			api.POST("/auth/pin/verify", authHandler.VerifyPIN)
 
+			api.GET("/auth/biometric/challenge", authHandler.GetBiometricChallenge)
+			api.POST("/auth/biometric/register", authHandler.RegisterBiometric)
+			api.POST("/auth/biometric/verify", authHandler.VerifyBiometric)
+
 			api.GET("/crypto/address", cryptoHandler.GetDepositAddress)
 			api.POST("/crypto/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), cryptoHandler.WithdrawCrypto)
 

@@ -558,3 +558,120 @@ func (h *AuthHandler) VerifyPIN(c *gin.Context) {
 		Message: "PIN Transaksi valid",
 	})
 }
+
+// GetBiometricChallenge godoc
+// @Summary      Get WebAuthn challenge for biometric authentication
+// @Description  Generates and returns a random challenge required for WebAuthn fingerprint/biometric verification
+// @Tags         Auth
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  domain.BiometricChallengeResponse
+// @Failure      500  {object}  domain.ErrorResponse
+// @Router       /auth/biometric/challenge [get]
+func (h *AuthHandler) GetBiometricChallenge(c *gin.Context) {
+	userIDStr, _ := c.Get("userID")
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+
+	challenge, err := h.authUC.GetBiometricChallenge(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: "Gagal membuat challenge: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":    "success",
+		"message":   "Challenge berhasil dibuat",
+		"challenge": challenge,
+	})
+}
+
+// RegisterBiometric godoc
+// @Summary      Register biometric credential (WebAuthn)
+// @Description  Stores the WebAuthn credential ID and public key for the authenticated user
+// @Tags         Auth
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.BiometricRegisterRequest  true  "Biometric registration data"
+// @Success      200   {object}  domain.SuccessResponse
+// @Failure      400   {object}  domain.ErrorResponse
+// @Router       /auth/biometric/register [post]
+func (h *AuthHandler) RegisterBiometric(c *gin.Context) {
+	userIDStr, _ := c.Get("userID")
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+
+	var req domain.BiometricRegisterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: "Data registrasi tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authUC.RegisterBiometric(userID, req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Fingerprint berhasil didaftarkan",
+	})
+}
+
+// VerifyBiometric godoc
+// @Summary      Verify biometric authentication (WebAuthn)
+// @Description  Verifies the WebAuthn assertion against the stored public key and challenge
+// @Tags         Auth
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body      domain.BiometricVerifyRequest  true  "Biometric verification data"
+// @Success      200   {object}  domain.SuccessResponse
+// @Failure      400   {object}  domain.ErrorResponse
+// @Router       /auth/biometric/verify [post]
+func (h *AuthHandler) VerifyBiometric(c *gin.Context) {
+	userIDStr, _ := c.Get("userID")
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+
+	var req domain.BiometricVerifyRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: "Data verifikasi tidak valid: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authUC.VerifyBiometric(userID, req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Verifikasi biometrik berhasil",
+	})
+}

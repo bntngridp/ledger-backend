@@ -1,9 +1,15 @@
 package usecase
 
 import (
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/sha256"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -16,6 +22,11 @@ import (
 
 type emailOTPEntry struct {
 	code      string
+	expiresAt time.Time
+}
+
+type biometricChallengeEntry struct {
+	challenge string
 	expiresAt time.Time
 }
 
@@ -33,25 +44,31 @@ type AuthUsecase interface {
 	Verify2FACode(userID uuid.UUID, code string) error
 	SetupPIN(userID uuid.UUID, pin string) error
 	VerifyPIN(userID uuid.UUID, pin string) error
+	GetBiometricChallenge(userID uuid.UUID) (string, error)
+	RegisterBiometric(userID uuid.UUID, req domain.BiometricRegisterRequest) error
+	VerifyBiometric(userID uuid.UUID, req domain.BiometricVerifyRequest) error
 }
 
 type authUsecase struct {
-	userRepo      domain.UserRepository
-	walletRepo    domain.WalletRepository
-	emailService  email.EmailService
-	encryptionKey []byte
-	emailOTPs     map[uuid.UUID]emailOTPEntry
-	otpMu         sync.Mutex
+	userRepo           domain.UserRepository
+	walletRepo         domain.WalletRepository
+	emailService       email.EmailService
+	encryptionKey      []byte
+	emailOTPs          map[uuid.UUID]emailOTPEntry
+	otpMu              sync.Mutex
+	biometricChallenges map[uuid.UUID]biometricChallengeEntry
+	biometricMu        sync.Mutex
 }
 
 func NewAuthUsecase(userRepo domain.UserRepository, walletRepo domain.WalletRepository, emailService email.EmailService, encryptionKeyBase64 string) AuthUsecase {
 	key, _ := base64.StdEncoding.DecodeString(encryptionKeyBase64)
 	return &authUsecase{
-		userRepo:      userRepo,
-		walletRepo:    walletRepo,
-		emailService:  emailService,
-		encryptionKey: key,
-		emailOTPs:     make(map[uuid.UUID]emailOTPEntry),
+		userRepo:            userRepo,
+		walletRepo:          walletRepo,
+		emailService:        emailService,
+		encryptionKey:       key,
+		emailOTPs:           make(map[uuid.UUID]emailOTPEntry),
+		biometricChallenges: make(map[uuid.UUID]biometricChallengeEntry),
 	}
 }
 
@@ -155,6 +172,126 @@ func (uc *authUsecase) VerifyPIN(userID uuid.UUID, pin string) error {
 	err = bcrypt.CompareHashAndPassword([]byte(*user.TransactionPIN), []byte(pin))
 	if err != nil {
 		return errors.New("PIN transaksi yang Anda masukkan salah")
+	}
+
+	return nil
+}
+
+// GetBiometricChallenge generates a random challenge for WebAuthn and stores it temporarily
+func (uc *authUsecase) GetBiometricChallenge(userID uuid.UUID) (string, error) {
+	challengeBytes := make([]byte, 32)
+	if _, err := rand.Read(challengeBytes); err != nil {
+		return "", fmt.Errorf("failed to generate challenge: %w", err)
+	}
+	challenge := base64.RawURLEncoding.EncodeToString(challengeBytes)
+
+	uc.biometricMu.Lock()
+	uc.biometricChallenges[userID] = biometricChallengeEntry{
+		challenge: challenge,
+		expiresAt: time.Now().Add(2 * time.Minute),
+	}
+	uc.biometricMu.Unlock()
+
+	return challenge, nil
+}
+
+// RegisterBiometric stores the WebAuthn credential ID and public key for the user
+func (uc *authUsecase) RegisterBiometric(userID uuid.UUID, req domain.BiometricRegisterRequest) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user tidak ditemukan")
+	}
+
+	user.BiometricCredentialID = &req.CredentialID
+	user.BiometricPublicKey = &req.PublicKeyBase64
+	user.BiometricEnabled = true
+
+	return uc.userRepo.UpdateUser(user)
+}
+
+// VerifyBiometric verifies a WebAuthn assertion using the stored public key and challenge
+func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVerifyRequest) error {
+	// Check and consume challenge
+	uc.biometricMu.Lock()
+	entry, exists := uc.biometricChallenges[userID]
+	if exists {
+		delete(uc.biometricChallenges, userID)
+	}
+	uc.biometricMu.Unlock()
+
+	if !exists {
+		return errors.New("tidak ada challenge aktif. Minta ulang challenge")
+	}
+	if time.Now().After(entry.expiresAt) {
+		return errors.New("challenge sudah expired. Silakan coba lagi")
+	}
+	if entry.challenge != req.Challenge {
+		return errors.New("challenge tidak valid")
+	}
+
+	// Retrieve user and their stored public key
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user tidak ditemukan")
+	}
+	if !user.BiometricEnabled || user.BiometricCredentialID == nil || user.BiometricPublicKey == nil {
+		return errors.New("biometrik belum didaftarkan. Silakan daftarkan fingerprint terlebih dahulu")
+	}
+	if *user.BiometricCredentialID != req.CredentialID {
+		return errors.New("credential ID tidak cocok")
+	}
+
+	// Decode the stored public key (CBOR/DER encoded EC P-256 public key stored as base64)
+	pubKeyBytes, err := base64.RawURLEncoding.DecodeString(*user.BiometricPublicKey)
+	if err != nil {
+		return fmt.Errorf("gagal mendecode public key: %w", err)
+	}
+
+	pubKeyInterface, err := x509.ParsePKIXPublicKey(pubKeyBytes)
+	if err != nil {
+		return fmt.Errorf("gagal mem-parse public key: %w", err)
+	}
+	ecPubKey, ok := pubKeyInterface.(*ecdsa.PublicKey)
+	if !ok {
+		return errors.New("public key bukan format EC yang valid")
+	}
+
+	// Reconstruct the signed data: authenticatorData || SHA256(clientDataJSON)
+	authDataBytes, err := base64.RawURLEncoding.DecodeString(req.AuthenticatorData)
+	if err != nil {
+		return fmt.Errorf("gagal mendecode authenticatorData: %w", err)
+	}
+	clientDataBytes, err := base64.RawURLEncoding.DecodeString(req.ClientDataJSON)
+	if err != nil {
+		return fmt.Errorf("gagal mendecode clientDataJSON: %w", err)
+	}
+
+	// Validate that challenge in clientDataJSON matches our stored challenge
+	var clientDataMap map[string]interface{}
+	if err := json.Unmarshal(clientDataBytes, &clientDataMap); err != nil {
+		return fmt.Errorf("gagal mem-parse clientDataJSON: %w", err)
+	}
+	clientChallenge, _ := clientDataMap["challenge"].(string)
+	if clientChallenge != req.Challenge {
+		return errors.New("challenge dalam clientDataJSON tidak cocok")
+	}
+
+	clientDataHash := sha256.Sum256(clientDataBytes)
+	signedData := append(authDataBytes, clientDataHash[:]...)
+	signedDataHash := sha256.Sum256(signedData)
+
+	// Decode and verify the ECDSA signature
+	sigBytes, err := base64.RawURLEncoding.DecodeString(req.Signature)
+	if err != nil {
+		return fmt.Errorf("gagal mendecode signature: %w", err)
+	}
+
+	// Parse DER-encoded ECDSA signature
+	r := new(big.Int).SetBytes(sigBytes[:len(sigBytes)/2])
+	s := new(big.Int).SetBytes(sigBytes[len(sigBytes)/2:])
+
+	if !ecdsa.Verify(ecPubKey, signedDataHash[:], r, s) {
+		return errors.New("verifikasi biometrik gagal: signature tidak valid")
 	}
 
 	return nil

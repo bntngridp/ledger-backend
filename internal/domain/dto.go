@@ -77,6 +77,25 @@ type VerifyPINRequest struct {
 	PIN string `json:"pin" binding:"required,len=6"`
 }
 
+type BiometricChallengeResponse struct {
+	Challenge string `json:"challenge"`
+}
+
+type BiometricRegisterRequest struct {
+	CredentialID         string `json:"credential_id" binding:"required"`
+	PublicKeyBase64      string `json:"public_key_base64" binding:"required"`
+	ClientDataJSON       string `json:"client_data_json" binding:"required"`
+	AuthenticatorData    string `json:"authenticator_data" binding:"required"`
+}
+
+type BiometricVerifyRequest struct {
+	CredentialID         string `json:"credential_id" binding:"required"`
+	ClientDataJSON       string `json:"client_data_json" binding:"required"`
+	AuthenticatorData    string `json:"authenticator_data" binding:"required"`
+	Signature            string `json:"signature" binding:"required"`
+	Challenge            string `json:"challenge" binding:"required"`
+}
+
 // ============================================================
 // Wallet / Dashboard DTOs
 // ============================================================
