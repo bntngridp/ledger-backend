@@ -286,6 +286,8 @@ func main() {
 		{
 			api.POST("/transfer", limiter, middleware.Require2FAIfEnabled(authUC), transferHandler.Transfer)
 			api.POST("/topup", walletHandler.TopUp)
+			api.POST("/topup/status", walletHandler.CheckTopUpStatus)
+			api.POST("/topup/simulate-settlement", walletHandler.SimulateTopUpSettlement)
 			api.GET("/transactions", walletHandler.GetTransactionHistory)
 			api.GET("/wallet/dashboard", walletHandler.GetDashboard)
 

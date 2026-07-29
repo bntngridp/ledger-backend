@@ -39,6 +39,7 @@ type TransactionRepository interface {
 	CreatePendingTopUpTx(walletID uuid.UUID, amount decimal.Decimal, assetSymbol, orderID, notes string) (*Transaction, error)
 	SettleTopUpTx(transactionID, walletID uuid.UUID, amount decimal.Decimal) error
 	GetTransactionByOrderID(orderID string) (*Transaction, error)
+	GetTransactionByID(txID uuid.UUID) (*Transaction, error)
 	UpdateTransactionStatus(txID uuid.UUID, status, notes string) error
 
 	// History with Pagination

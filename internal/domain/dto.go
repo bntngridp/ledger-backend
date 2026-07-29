@@ -117,6 +117,22 @@ type TopUpResponse struct {
 	RedirectURL   string          `json:"redirect_url,omitempty"`
 }
 
+type CheckTopUpStatusRequest struct {
+	TransactionID string `json:"transaction_id" binding:"required"`
+}
+
+type CheckTopUpStatusResponse struct {
+	TransactionID string          `json:"transaction_id"`
+	Status        string          `json:"status"`
+	Amount        decimal.Decimal `json:"amount"`
+	AssetSymbol   string          `json:"asset_symbol"`
+	IsSettled     bool            `json:"is_settled"`
+}
+
+type SimulateTopUpSettlementRequest struct {
+	TransactionID string `json:"transaction_id" binding:"required"`
+}
+
 type WithdrawFiatRequest struct {
 	Amount        decimal.Decimal `json:"amount" binding:"required,gt=0"`
 	BankCode      string          `json:"bank_code" binding:"required"`

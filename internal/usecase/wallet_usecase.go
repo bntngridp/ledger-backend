@@ -16,6 +16,8 @@ import (
 // WalletUsecase defines the business operations for the wallet module.
 type WalletUsecase interface {
 	TopUp(userID uuid.UUID, amount decimal.Decimal, assetSymbol, notes string) (*domain.TopUpResponse, error)
+	CheckTopUpStatus(userID uuid.UUID, transactionID string) (*domain.CheckTopUpStatusResponse, error)
+	SimulateTopUpSettlement(userID uuid.UUID, transactionID string) error
 	GetTransactionHistory(userID uuid.UUID, page, perPage int, assetFilter, typeFilter string) (*domain.TransactionHistoryResponse, error)
 	GetDashboard(userID uuid.UUID) (*domain.DashboardResponse, error)
 }
@@ -190,4 +192,52 @@ func (uc *walletUsecase) GetDashboard(userID uuid.UUID) (*domain.DashboardRespon
 		Balances:          balancesDTO,
 		EstimatedTotalIDR: estimatedTotalIDR,
 	}, nil
+}
+
+func (uc *walletUsecase) CheckTopUpStatus(userID uuid.UUID, txIDStr string) (*domain.CheckTopUpStatusResponse, error) {
+	txUUID, err := uuid.Parse(txIDStr)
+	if err != nil {
+		return nil, domain.ErrInvalidInput
+	}
+
+	txRecord, err := uc.txRepo.GetTransactionByID(txUUID)
+	if err != nil {
+		return nil, err
+	}
+	if txRecord == nil {
+		return nil, domain.ErrNotFound
+	}
+
+	return &domain.CheckTopUpStatusResponse{
+		TransactionID: txRecord.TransactionID.String(),
+		Status:        txRecord.Status,
+		Amount:        txRecord.Amount,
+		AssetSymbol:   txRecord.AssetSymbol,
+		IsSettled:     txRecord.Status == "success",
+	}, nil
+}
+
+func (uc *walletUsecase) SimulateTopUpSettlement(userID uuid.UUID, txIDStr string) error {
+	txUUID, err := uuid.Parse(txIDStr)
+	if err != nil {
+		return domain.ErrInvalidInput
+	}
+
+	txRecord, err := uc.txRepo.GetTransactionByID(txUUID)
+	if err != nil {
+		return err
+	}
+	if txRecord == nil {
+		return domain.ErrNotFound
+	}
+
+	if txRecord.Status != "pending" {
+		return nil // Already settled or failed
+	}
+
+	if txRecord.DestinationWalletID == nil {
+		return errors.New("destination wallet is nil")
+	}
+
+	return uc.txRepo.SettleTopUpTx(txRecord.TransactionID, *txRecord.DestinationWalletID, txRecord.Amount)
 }

@@ -193,6 +193,17 @@ func (r *transactionRepository) GetTransactionByOrderID(orderID string) (*domain
 	return &transaction, nil
 }
 
+func (r *transactionRepository) GetTransactionByID(txID uuid.UUID) (*domain.Transaction, error) {
+	var transaction domain.Transaction
+	if err := r.db.Where("transaction_id = ?", txID).First(&transaction).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &transaction, nil
+}
+
 func (r *transactionRepository) UpdateTransactionStatus(txID uuid.UUID, status, notes string) error {
 	updates := map[string]interface{}{"status": status}
 	if notes != "" {

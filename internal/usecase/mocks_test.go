@@ -142,6 +142,14 @@ func (m *MockTransactionRepository) RejectWithdrawFiatTx(txID uuid.UUID, reason 
 	return args.Error(0)
 }
 
+func (m *MockTransactionRepository) GetTransactionByID(txID uuid.UUID) (*domain.Transaction, error) {
+	args := m.Called(txID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*domain.Transaction), args.Error(1)
+}
+
 type MockUserRepository struct {
 	mock.Mock
 }

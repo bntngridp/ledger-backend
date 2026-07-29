@@ -61,6 +61,83 @@ func (h *WalletHandler) TopUp(c *gin.Context) {
 	response.SendSuccess(c, http.StatusOK, "top-up initiated successfully", resp)
 }
 
+// CheckTopUpStatus godoc
+// @Summary      Check Top-Up status
+// @Description  Fetches current transaction status for a Top-Up transaction.
+// @Tags         wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body domain.CheckTopUpStatusRequest true "Status check payload"
+// @Success      200 {object} domain.SuccessResponse{data=domain.CheckTopUpStatusResponse} "Status retrieved"
+// @Failure      400 {object} domain.ErrorResponse "Invalid request"
+// @Failure      401 {object} domain.ErrorResponse "Unauthorized"
+// @Router       /topup/status [post]
+func (h *WalletHandler) CheckTopUpStatus(c *gin.Context) {
+	var req domain.CheckTopUpStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleError(c, domain.ErrInvalidInput)
+		return
+	}
+
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	resp, err := h.walletUC.CheckTopUpStatus(userID, req.TransactionID)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.SendSuccess(c, http.StatusOK, "topup status checked", resp)
+}
+
+// SimulateTopUpSettlement godoc
+// @Summary      Simulate Top-Up settlement (Sandbox Dev Helper)
+// @Description  Instantly settles a pending Top-Up transaction for testing & simulation mode.
+// @Tags         wallet
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body domain.SimulateTopUpSettlementRequest true "Simulate payload"
+// @Success      200 {object} domain.SuccessResponse "Settlement simulated successfully"
+// @Router       /topup/simulate-settlement [post]
+func (h *WalletHandler) SimulateTopUpSettlement(c *gin.Context) {
+	var req domain.SimulateTopUpSettlementRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleError(c, domain.ErrInvalidInput)
+		return
+	}
+
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	if err := h.walletUC.SimulateTopUpSettlement(userID, req.TransactionID); err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.SendSuccess(c, http.StatusOK, "topup settlement simulated successfully", nil)
+}
+
 // GetTransactionHistory godoc
 // @Summary      Get transaction history
 // @Description  Returns the authenticated user's transaction history with pagination and filters.
