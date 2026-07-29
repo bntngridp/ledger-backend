@@ -31,6 +31,8 @@ type AuthUsecase interface {
 	ChangePassword(userID uuid.UUID, req domain.ChangePasswordRequest) error
 	Verify2FALogin(preAuthToken, code, jwtSecret string, expiryHours int) (*domain.LoginResponse, error)
 	Verify2FACode(userID uuid.UUID, code string) error
+	SetupPIN(userID uuid.UUID, pin string) error
+	VerifyPIN(userID uuid.UUID, pin string) error
 }
 
 type authUsecase struct {
@@ -108,6 +110,54 @@ func (uc *authUsecase) Register(username, email, password string) (*domain.Regis
 			{AssetSymbol: "USDC", Balance: decimal.Zero},
 		},
 	}, nil
+}
+
+func (uc *authUsecase) SetupPIN(userID uuid.UUID, pin string) error {
+	if len(pin) != 6 {
+		return errors.New("PIN harus 6 digit angka")
+	}
+
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user not found")
+	}
+
+	hashedPIN, err := bcrypt.GenerateFromPassword([]byte(pin), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash PIN: %w", err)
+	}
+
+	pinStr := string(hashedPIN)
+	user.TransactionPIN = &pinStr
+	user.PINEnabled = true
+
+	return uc.userRepo.UpdateUser(user)
+}
+
+func (uc *authUsecase) VerifyPIN(userID uuid.UUID, pin string) error {
+	if len(pin) != 6 {
+		return errors.New("PIN transaksi harus 6 digit")
+	}
+
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil || user == nil {
+		return errors.New("user tidak ditemukan")
+	}
+
+	// Default PIN check: if PIN has not been custom set, allow 123456 as standard initial PIN
+	if user.TransactionPIN == nil || *user.TransactionPIN == "" {
+		if pin == "123456" {
+			return nil
+		}
+		return errors.New("PIN transaksi salah. (Gunakan PIN default 123456)")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(*user.TransactionPIN), []byte(pin))
+	if err != nil {
+		return errors.New("PIN transaksi yang Anda masukkan salah")
+	}
+
+	return nil
 }
 
 type TransferUsecase interface {

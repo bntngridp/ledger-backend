@@ -299,6 +299,9 @@ func main() {
 			api.POST("/auth/password/email-otp/send", authHandler.SendChangePasswordEmailOTP)
 			api.POST("/auth/password/change", authHandler.ChangePassword)
 
+			api.POST("/auth/pin/setup", authHandler.SetupPIN)
+			api.POST("/auth/pin/verify", authHandler.VerifyPIN)
+
 			api.GET("/crypto/address", cryptoHandler.GetDepositAddress)
 			api.POST("/crypto/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), cryptoHandler.WithdrawCrypto)
 

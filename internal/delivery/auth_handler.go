@@ -472,3 +472,89 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		Message: "Kata sandi berhasil diperbarui",
 	})
 }
+
+// SetupPIN handles setting up or updating transaction PIN
+func (h *AuthHandler) SetupPIN(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	var req domain.SetupPINRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: "invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authUC.SetupPIN(userID, req.PIN); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "PIN Transaksi berhasil disetel",
+	})
+}
+
+// VerifyPIN handles verifying transaction PIN before sensitive operations
+func (h *AuthHandler) VerifyPIN(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	var req domain.VerifyPINRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: "invalid request: " + err.Error(),
+		})
+		return
+	}
+
+	if err := h.authUC.VerifyPIN(userID, req.PIN); err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "PIN Transaksi valid",
+	})
+}

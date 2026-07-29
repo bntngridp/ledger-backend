@@ -69,6 +69,14 @@ type ChangePasswordRequest struct {
 	TwoFactorCode string `json:"two_factor_code,omitempty"`
 }
 
+type SetupPINRequest struct {
+	PIN string `json:"pin" binding:"required,len=6"`
+}
+
+type VerifyPINRequest struct {
+	PIN string `json:"pin" binding:"required,len=6"`
+}
+
 // ============================================================
 // Wallet / Dashboard DTOs
 // ============================================================

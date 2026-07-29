@@ -17,6 +17,8 @@ type User struct {
 	TwoFactorSecret        *string   `gorm:"type:text;default:null" json:"-"`
 	TwoFactorRecoveryCodes *string   `gorm:"type:text;default:null" json:"-"`
 	TwoFactorEnabled       bool      `gorm:"default:false;not null" json:"two_factor_enabled"`
+	TransactionPIN         *string   `gorm:"type:varchar(255);default:null" json:"-"`
+	PINEnabled             bool      `gorm:"default:true;not null" json:"pin_enabled"`
 	CreatedAt        time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	Wallet           *Wallet   `gorm:"foreignKey:UserID" json:"wallet,omitempty"`
