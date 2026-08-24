@@ -319,3 +319,27 @@ type IrisCallbackItem struct {
 	ErrorMessage       *string `json:"error_message"`
 }
 
+// ============================================================
+// Profile & User Info DTOs
+// ============================================================
+
+type UserProfileResponse struct {
+	UserID           string    `json:"user_id"`
+	Username         string    `json:"username"`
+	Email            string    `json:"email"`
+	AvatarURL        *string   `json:"avatar_url,omitempty"`
+	IsActive         bool      `json:"is_active"`
+	TwoFactorEnabled bool      `json:"two_factor_enabled"`
+	PINEnabled       bool      `json:"pin_enabled"`
+	BiometricEnabled bool      `json:"biometric_enabled"`
+	CreatedAt        time.Time `json:"created_at"`
+	WalletID         *string   `json:"wallet_id,omitempty"`
+}
+
+type SimulateCryptoDepositRequest struct {
+	AssetSymbol string          `json:"asset_symbol" binding:"required"`
+	Amount      decimal.Decimal `json:"amount" binding:"required,gt=0"`
+	TxHash      string          `json:"tx_hash"`
+	Notes       string          `json:"notes"`
+}
+

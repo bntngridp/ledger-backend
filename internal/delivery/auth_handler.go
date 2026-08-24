@@ -569,7 +569,14 @@ func (h *AuthHandler) VerifyPIN(c *gin.Context) {
 // @Failure      500  {object}  domain.ErrorResponse
 // @Router       /auth/biometric/challenge [get]
 func (h *AuthHandler) GetBiometricChallenge(c *gin.Context) {
-	userIDStr, _ := c.Get("userID")
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		userIDStr, _ = c.Get("userID")
+	}
+	if userIDStr == nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
 	userID, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
@@ -604,7 +611,14 @@ func (h *AuthHandler) GetBiometricChallenge(c *gin.Context) {
 // @Failure      400   {object}  domain.ErrorResponse
 // @Router       /auth/biometric/register [post]
 func (h *AuthHandler) RegisterBiometric(c *gin.Context) {
-	userIDStr, _ := c.Get("userID")
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		userIDStr, _ = c.Get("userID")
+	}
+	if userIDStr == nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
 	userID, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
@@ -646,7 +660,14 @@ func (h *AuthHandler) RegisterBiometric(c *gin.Context) {
 // @Failure      400   {object}  domain.ErrorResponse
 // @Router       /auth/biometric/verify [post]
 func (h *AuthHandler) VerifyBiometric(c *gin.Context) {
-	userIDStr, _ := c.Get("userID")
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		userIDStr, _ = c.Get("userID")
+	}
+	if userIDStr == nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
 	userID, err := uuid.Parse(userIDStr.(string))
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
@@ -673,5 +694,46 @@ func (h *AuthHandler) VerifyBiometric(c *gin.Context) {
 	c.JSON(http.StatusOK, domain.SuccessResponse{
 		Status:  http.StatusOK,
 		Message: "Verifikasi biometrik berhasil",
+	})
+}
+
+// GetMe godoc
+// @Summary      Get current authenticated user profile
+// @Description  Returns user info, security status (2FA, PIN, Biometric), wallet ID, and registration date
+// @Tags         Auth
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  domain.SuccessResponse{data=domain.UserProfileResponse}
+// @Failure      401  {object}  domain.ErrorResponse
+// @Failure      500  {object}  domain.ErrorResponse
+// @Router       /auth/me [get]
+func (h *AuthHandler) GetMe(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		userIDStr, _ = c.Get("userID")
+	}
+	if userIDStr == nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+
+	profile, err := h.authUC.GetMe(userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "profile retrieved successfully",
+		Data:    profile,
 	})
 }

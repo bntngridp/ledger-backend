@@ -218,6 +218,7 @@ func main() {
 		WalletRepo:          walletRepo,
 		TxRepo:              txRepo,
 		CryptoAddrRepo:      cryptoAddrRepo,
+		NotifRepo:           notifRepo,
 		EncryptionKeyBase64: cryptoEncryptionKeyBase64,
 		AlchemyClient:       alchemyClient,
 		ContractAddrs:       contractAddrs,
@@ -284,6 +285,7 @@ func main() {
 
 		api.Use(middleware.JWTAuth(jwtSecret))
 		{
+			api.GET("/auth/me", authHandler.GetMe)
 			api.POST("/transfer", limiter, middleware.Require2FAIfEnabled(authUC), transferHandler.Transfer)
 			api.POST("/topup", walletHandler.TopUp)
 			api.POST("/topup/status", walletHandler.CheckTopUpStatus)
@@ -308,6 +310,7 @@ func main() {
 
 			api.GET("/crypto/address", cryptoHandler.GetDepositAddress)
 			api.POST("/crypto/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), cryptoHandler.WithdrawCrypto)
+			api.POST("/crypto/simulate-deposit", cryptoHandler.SimulateDeposit)
 
 			api.GET("/exchange/rate", exchangeHandler.GetRate)
 			api.POST("/exchange/swap", limiter, exchangeHandler.Swap)

@@ -47,6 +47,7 @@ type AuthUsecase interface {
 	GetBiometricChallenge(userID uuid.UUID) (string, error)
 	RegisterBiometric(userID uuid.UUID, req domain.BiometricRegisterRequest) error
 	VerifyBiometric(userID uuid.UUID, req domain.BiometricVerifyRequest) error
+	GetMe(userID uuid.UUID) (*domain.UserProfileResponse, error)
 }
 
 type authUsecase struct {
@@ -295,6 +296,36 @@ func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVer
 	}
 
 	return nil
+}
+
+func (uc *authUsecase) GetMe(userID uuid.UUID) (*domain.UserProfileResponse, error) {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, domain.ErrNotFound
+	}
+
+	var walletIDStr *string
+	wallet, _ := uc.walletRepo.GetWalletByUserID(userID)
+	if wallet != nil {
+		wStr := wallet.WalletID.String()
+		walletIDStr = &wStr
+	}
+
+	return &domain.UserProfileResponse{
+		UserID:           user.UserID.String(),
+		Username:         user.Username,
+		Email:            user.Email,
+		AvatarURL:        user.AvatarURL,
+		IsActive:         user.IsActive,
+		TwoFactorEnabled: user.TwoFactorEnabled,
+		PINEnabled:       user.PINEnabled,
+		BiometricEnabled: user.BiometricEnabled,
+		CreatedAt:        user.CreatedAt,
+		WalletID:         walletIDStr,
+	}, nil
 }
 
 type TransferUsecase interface {

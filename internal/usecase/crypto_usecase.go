@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
@@ -29,12 +30,14 @@ var supportedCryptoAssets = map[string]bool{
 type CryptoUsecase interface {
 	GetOrCreateDepositAddress(userID uuid.UUID, network, assetSymbol string) (*domain.DepositAddressResponse, error)
 	WithdrawCrypto(userID uuid.UUID, req domain.CryptoWithdrawRequest) (*domain.CryptoWithdrawResponse, error)
+	SimulateDeposit(userID uuid.UUID, assetSymbol string, amount decimal.Decimal, txHash, notes string) (*domain.Transaction, error)
 }
 
 type cryptoUsecase struct {
 	walletRepo     domain.WalletRepository
 	txRepo         domain.TransactionRepository
 	cryptoAddrRepo domain.CryptoAddressRepository
+	notifRepo      domain.NotificationRepository
 	encryptionKey  []byte
 	alchemyClient  *blockchain.AlchemyClient
 	contractAddrs  map[string]string
@@ -45,6 +48,7 @@ type CryptoUsecaseConfig struct {
 	WalletRepo          domain.WalletRepository
 	TxRepo              domain.TransactionRepository
 	CryptoAddrRepo      domain.CryptoAddressRepository
+	NotifRepo           domain.NotificationRepository
 	EncryptionKeyBase64 string
 	AlchemyClient       *blockchain.AlchemyClient
 	ContractAddrs       map[string]string
@@ -64,6 +68,7 @@ func NewCryptoUsecase(cfg CryptoUsecaseConfig) (CryptoUsecase, error) {
 		walletRepo:     cfg.WalletRepo,
 		txRepo:         cfg.TxRepo,
 		cryptoAddrRepo: cfg.CryptoAddrRepo,
+		notifRepo:      cfg.NotifRepo,
 		encryptionKey:  key,
 		alchemyClient:  cfg.AlchemyClient,
 		contractAddrs:  cfg.ContractAddrs,
@@ -272,4 +277,50 @@ func (uc *cryptoUsecase) broadcastWithdrawal(txID, walletID uuid.UUID, network, 
 
 	txHash := signedTx.Hash().Hex()
 	_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, txHash, "success")
+}
+
+func (uc *cryptoUsecase) SimulateDeposit(userID uuid.UUID, assetSymbol string, amount decimal.Decimal, txHash, notes string) (*domain.Transaction, error) {
+	assetSymbol = strings.ToUpper(assetSymbol)
+	if !supportedCryptoAssets[assetSymbol] {
+		return nil, domain.ErrUnsupportedAsset
+	}
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return nil, domain.ErrInvalidInput
+	}
+
+	wallet, err := uc.walletRepo.GetWalletByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get wallet: %w", err)
+	}
+	if wallet == nil {
+		return nil, domain.ErrNotFound
+	}
+
+	if txHash == "" {
+		randomBytes := make([]byte, 32)
+		_, _ = rand.Read(randomBytes)
+		txHash = "0x" + hex.EncodeToString(randomBytes)
+	}
+
+	if notes == "" {
+		notes = fmt.Sprintf("Simulated on-chain %s deposit", assetSymbol)
+	}
+
+	txRecord, err := uc.txRepo.CreditCryptoDeposit(wallet.WalletID, amount, assetSymbol, txHash, notes)
+	if err != nil {
+		return nil, err
+	}
+
+	if uc.notifRepo != nil {
+		notif := &domain.Notification{
+			UserID: userID,
+			Type:   "crypto_deposit",
+			Title:  fmt.Sprintf("Setoran %s Berhasil", assetSymbol),
+			Body:   fmt.Sprintf("Setoran %s %s berhasil masuk ke dompet Anda.", amount.String(), assetSymbol),
+			IsRead: false,
+		}
+		_ = uc.notifRepo.CreateNotification(notif)
+	}
+
+	return txRecord, nil
 }

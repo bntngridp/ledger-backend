@@ -5,6 +5,8 @@
 *.so
 *.dylib
 bin/
+api
+dist/
 
 # Dependency directories
 vendor/

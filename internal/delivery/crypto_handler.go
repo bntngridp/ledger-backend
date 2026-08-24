@@ -109,3 +109,44 @@ func (h *CryptoHandler) WithdrawCrypto(c *gin.Context) {
 
 	response.SendSuccess(c, http.StatusOK, "withdrawal initiated successfully", resp)
 }
+
+// SimulateDeposit godoc
+// @Summary      Simulate on-chain crypto deposit (for testnet/dev testing)
+// @Description  Credits crypto deposit to the user wallet and triggers an in-app notification
+// @Tags         crypto
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body domain.SimulateCryptoDepositRequest true "Deposit simulation payload"
+// @Success      200 {object} domain.SuccessResponse "Deposit credited"
+// @Failure      400 {object} domain.ErrorResponse "Invalid input"
+// @Failure      401 {object} domain.ErrorResponse "Unauthorized"
+// @Failure      500 {object} domain.ErrorResponse "Internal server error"
+// @Router       /crypto/simulate-deposit [post]
+func (h *CryptoHandler) SimulateDeposit(c *gin.Context) {
+	var req domain.SimulateCryptoDepositRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.HandleError(c, domain.ErrInvalidInput)
+		return
+	}
+
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		response.HandleError(c, domain.ErrUnauthorized)
+		return
+	}
+
+	txRecord, err := h.cryptoUC.SimulateDeposit(userID, req.AssetSymbol, req.Amount, req.TxHash, req.Notes)
+	if err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	response.SendSuccess(c, http.StatusOK, "crypto deposit simulated and credited successfully", txRecord)
+}
