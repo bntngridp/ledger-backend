@@ -272,17 +272,33 @@ func (uc *cryptoUsecase) broadcastWithdrawal(txID, walletID uuid.UUID, network, 
 
 	txHash := signedTx.Hash().Hex()
 	if err := uc.alchemyClient.SendSignedTransaction(import_ctx, signedTx); err != nil {
-		if strings.Contains(err.Error(), "insufficient funds for gas") {
-			// In testnet/sandbox mode when custodial address has no native MATIC gas tokens,
-			// complete internal ledger withdrawal with valid signed transaction hash
-			_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, txHash, "success")
+		if !strings.Contains(err.Error(), "insufficient funds for gas") {
+			_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to broadcast tx: "+err.Error())
 			return
 		}
-		_ = uc.txRepo.RejectWithdrawCryptoTx(txID, "failed to broadcast tx: "+err.Error())
-		return
+		// In testnet/sandbox mode when custodial address has no native MATIC gas tokens,
+		// continue to complete internal ledger withdrawal with valid signed transaction hash
 	}
 
 	_ = uc.txRepo.UpdateCryptoWithdrawTx(txID, txHash, "success")
+
+	// If the destination address belongs to another internal Ledger user, credit their balance instantly
+	destCryptoAddr, err := uc.cryptoAddrRepo.GetAddressByValue(toAddr)
+	if err == nil && destCryptoAddr != nil {
+		depositTxHash := txHash + "-dep"
+		depositNotes := fmt.Sprintf("Internal crypto deposit on %s from %s", network, cryptoAddr.Address)
+		_, _ = uc.txRepo.CreditCryptoDeposit(destCryptoAddr.WalletID, amount, assetSymbol, depositTxHash, depositNotes)
+
+		if uc.notifRepo != nil && destCryptoAddr.Wallet != nil {
+			_ = uc.notifRepo.CreateNotification(&domain.Notification{
+				UserID: destCryptoAddr.Wallet.UserID,
+				Type:   "crypto_deposit",
+				Title:  fmt.Sprintf("Setoran %s Berhasil Diterima", assetSymbol),
+				Body:   fmt.Sprintf("Anda menerima setoran crypto sebesar %s %s.", amount.String(), assetSymbol),
+				IsRead: false,
+			})
+		}
+	}
 }
 
 func (uc *cryptoUsecase) SimulateDeposit(userID uuid.UUID, assetSymbol string, amount decimal.Decimal, txHash, notes string) (*domain.Transaction, error) {

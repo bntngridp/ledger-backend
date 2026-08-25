@@ -30,7 +30,7 @@ func (r *cryptoAddressRepository) GetAddressByWalletID(walletID uuid.UUID, netwo
 
 func (r *cryptoAddressRepository) GetAddressByValue(address string) (*domain.CryptoAddress, error) {
 	var cryptoAddr domain.CryptoAddress
-	if err := r.db.Where("address = ?", address).First(&cryptoAddr).Error; err != nil {
+	if err := r.db.Preload("Wallet").Where("LOWER(address) = LOWER(?)", address).First(&cryptoAddr).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
