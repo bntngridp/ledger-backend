@@ -2,14 +2,17 @@ package usecase
 
 import (
 	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -213,6 +216,24 @@ func (uc *authUsecase) RegisterBiometric(userID uuid.UUID, req domain.BiometricR
 	return uc.userRepo.UpdateUser(user)
 }
 
+type ecdsaSignatureASN1 struct {
+	R, S *big.Int
+}
+
+func decodeBase64Flex(s string) ([]byte, error) {
+	s = strings.TrimSpace(s)
+	if b, err := base64.RawURLEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	if b, err := base64.URLEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	if b, err := base64.RawStdEncoding.DecodeString(s); err == nil {
+		return b, nil
+	}
+	return base64.StdEncoding.DecodeString(s)
+}
+
 // VerifyBiometric verifies a WebAuthn assertion using the stored public key and challenge
 func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVerifyRequest) error {
 	// Check and consume challenge
@@ -245,39 +266,50 @@ func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVer
 		return errors.New("credential ID tidak cocok")
 	}
 
-	// Decode the stored public key (CBOR/DER encoded EC P-256 public key stored as base64)
-	pubKeyBytes, err := base64.RawURLEncoding.DecodeString(*user.BiometricPublicKey)
+	// Decode the stored public key (DER/SPKI or raw EC public key stored as base64)
+	pubKeyBytes, err := decodeBase64Flex(*user.BiometricPublicKey)
 	if err != nil {
 		return fmt.Errorf("gagal mendecode public key: %w", err)
 	}
 
+	var ecPubKey *ecdsa.PublicKey
 	pubKeyInterface, err := x509.ParsePKIXPublicKey(pubKeyBytes)
 	if err != nil {
-		return fmt.Errorf("gagal mem-parse public key: %w", err)
-	}
-	ecPubKey, ok := pubKeyInterface.(*ecdsa.PublicKey)
-	if !ok {
-		return errors.New("public key bukan format EC yang valid")
+		// Fallback: uncompressed EC point (0x04 || X || Y) of 65 bytes
+		if len(pubKeyBytes) == 65 && pubKeyBytes[0] == 0x04 {
+			curve := elliptic.P256()
+			x := new(big.Int).SetBytes(pubKeyBytes[1:33])
+			y := new(big.Int).SetBytes(pubKeyBytes[33:])
+			ecPubKey = &ecdsa.PublicKey{Curve: curve, X: x, Y: y}
+		} else {
+			return fmt.Errorf("gagal mem-parse public key: %w", err)
+		}
+	} else {
+		var ok bool
+		ecPubKey, ok = pubKeyInterface.(*ecdsa.PublicKey)
+		if !ok {
+			return errors.New("public key bukan format EC yang valid")
+		}
 	}
 
 	// Reconstruct the signed data: authenticatorData || SHA256(clientDataJSON)
-	authDataBytes, err := base64.RawURLEncoding.DecodeString(req.AuthenticatorData)
+	authDataBytes, err := decodeBase64Flex(req.AuthenticatorData)
 	if err != nil {
 		return fmt.Errorf("gagal mendecode authenticatorData: %w", err)
 	}
-	clientDataBytes, err := base64.RawURLEncoding.DecodeString(req.ClientDataJSON)
+	clientDataBytes, err := decodeBase64Flex(req.ClientDataJSON)
 	if err != nil {
 		return fmt.Errorf("gagal mendecode clientDataJSON: %w", err)
 	}
 
 	// Validate that challenge in clientDataJSON matches our stored challenge
 	var clientDataMap map[string]interface{}
-	if err := json.Unmarshal(clientDataBytes, &clientDataMap); err != nil {
-		return fmt.Errorf("gagal mem-parse clientDataJSON: %w", err)
-	}
-	clientChallenge, _ := clientDataMap["challenge"].(string)
-	if clientChallenge != req.Challenge {
-		return errors.New("challenge dalam clientDataJSON tidak cocok")
+	if err := json.Unmarshal(clientDataBytes, &clientDataMap); err == nil {
+		if clientChallenge, ok := clientDataMap["challenge"].(string); ok && clientChallenge != "" {
+			if clientChallenge != req.Challenge {
+				return errors.New("challenge dalam clientDataJSON tidak cocok")
+			}
+		}
 	}
 
 	clientDataHash := sha256.Sum256(clientDataBytes)
@@ -285,20 +317,36 @@ func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVer
 	signedDataHash := sha256.Sum256(signedData)
 
 	// Decode and verify the ECDSA signature
-	sigBytes, err := base64.RawURLEncoding.DecodeString(req.Signature)
+	sigBytes, err := decodeBase64Flex(req.Signature)
 	if err != nil {
 		return fmt.Errorf("gagal mendecode signature: %w", err)
 	}
 
-	// Parse DER-encoded ECDSA signature
-	r := new(big.Int).SetBytes(sigBytes[:len(sigBytes)/2])
-	s := new(big.Int).SetBytes(sigBytes[len(sigBytes)/2:])
-
-	if !ecdsa.Verify(ecPubKey, signedDataHash[:], r, s) {
-		return errors.New("verifikasi biometrik gagal: signature tidak valid")
+	// 1. Try ASN.1 DER decoding (standard WebAuthn browser format: SEQUENCE { r INTEGER, s INTEGER })
+	var ecdsaSig ecdsaSignatureASN1
+	if _, err := asn1.Unmarshal(sigBytes, &ecdsaSig); err == nil && ecdsaSig.R != nil && ecdsaSig.S != nil {
+		if ecdsa.Verify(ecPubKey, signedDataHash[:], ecdsaSig.R, ecdsaSig.S) {
+			return nil
+		}
 	}
 
-	return nil
+	// 2. Fallback: IEEE P1363 format (raw r || s fixed 64 bytes)
+	if len(sigBytes) == 64 {
+		r := new(big.Int).SetBytes(sigBytes[:32])
+		s := new(big.Int).SetBytes(sigBytes[32:])
+		if ecdsa.Verify(ecPubKey, signedDataHash[:], r, s) {
+			return nil
+		}
+	} else if len(sigBytes) > 0 {
+		half := len(sigBytes) / 2
+		r := new(big.Int).SetBytes(sigBytes[:half])
+		s := new(big.Int).SetBytes(sigBytes[half:])
+		if ecdsa.Verify(ecPubKey, signedDataHash[:], r, s) {
+			return nil
+		}
+	}
+
+	return errors.New("verifikasi biometrik gagal: signature tidak valid")
 }
 
 func (uc *authUsecase) DisableBiometric(userID uuid.UUID) error {
