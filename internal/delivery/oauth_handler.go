@@ -52,7 +52,7 @@ func generateStateOauthCookie(c *gin.Context) string {
 // @Router       /auth/google [get]
 func (h *OAuthHandler) LoginGoogle(c *gin.Context) {
 	state := generateStateOauthCookie(c)
-	url := h.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline)
+	url := h.oauthConfig.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
 	c.Redirect(http.StatusTemporaryRedirect, url)
 }
 
