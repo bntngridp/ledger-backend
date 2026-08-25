@@ -596,6 +596,9 @@ func (h *AuthHandler) GetBiometricChallenge(c *gin.Context) {
 		"status":    "success",
 		"message":   "Challenge berhasil dibuat",
 		"challenge": challenge,
+		"data": gin.H{
+			"challenge": challenge,
+		},
 	})
 }
 
