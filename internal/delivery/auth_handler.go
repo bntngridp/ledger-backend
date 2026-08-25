@@ -227,6 +227,90 @@ func (h *AuthHandler) Verify2FA(c *gin.Context) {
 	})
 }
 
+// GetRecoveryCodes godoc
+// @Summary      Get current user's 2FA recovery codes
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} domain.SuccessResponse{data=[]string} "Recovery codes list"
+// @Router       /auth/2fa/recovery-codes [get]
+func (h *AuthHandler) GetRecoveryCodes(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	codes, err := h.authUC.GetRecoveryCodes(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Kode pemulihan berhasil diambil",
+		Data:    codes,
+	})
+}
+
+// RegenerateRecoveryCodes godoc
+// @Summary      Generate new 2FA recovery codes
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} domain.SuccessResponse{data=[]string} "New recovery codes list"
+// @Router       /auth/2fa/recovery-codes/regenerate [post]
+func (h *AuthHandler) RegenerateRecoveryCodes(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	codes, err := h.authUC.RegenerateRecoveryCodes(userID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, domain.ErrorResponse{
+			Status:  http.StatusBadRequest,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Kode pemulihan baru berhasil dibuat",
+		Data:    codes,
+	})
+}
+
 // Send2FAEmailOTP godoc
 // @Summary      Send Email OTP for 2FA Deactivation/Recovery
 // @Tags         auth

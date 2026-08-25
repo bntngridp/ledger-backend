@@ -37,6 +37,8 @@ type AuthUsecase interface {
 	Generate2FASecret(userID uuid.UUID) (*domain.Enable2FAResponse, error)
 	Enable2FA(userID uuid.UUID, code string) ([]string, error)
 	Disable2FA(userID uuid.UUID, req domain.Disable2FARequest) error
+	GetRecoveryCodes(userID uuid.UUID) ([]string, error)
+	RegenerateRecoveryCodes(userID uuid.UUID) ([]string, error)
 	Send2FAEmailOTP(userID uuid.UUID) error
 	SendChangePasswordEmailOTP(userID uuid.UUID) error
 	ChangePassword(userID uuid.UUID, req domain.ChangePasswordRequest) error

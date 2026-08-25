@@ -264,12 +264,107 @@ func (uc *authUsecase) Verify2FALogin(preAuthToken, code, jwtSecret string, expi
 		return nil, fmt.Errorf("failed to decrypt secret: %w", err)
 	}
 	secretStr := string(decrypted)
+	cleanedCode := strings.TrimSpace(code)
+	if !totp.Validate(cleanedCode, secretStr) {
+		// Check if the code matches one of the user's recovery codes
+		recoveryMatched := false
+		if user.TwoFactorRecoveryCodes != nil && *user.TwoFactorRecoveryCodes != "" {
+			encCodes, err := hex.DecodeString(*user.TwoFactorRecoveryCodes)
+			if err == nil {
+				decCodes, err := pkgcrypto.Decrypt(encCodes, uc.encryptionKey)
+				if err == nil {
+					codesList := strings.Split(string(decCodes), ",")
+					newCodesList := make([]string, 0, len(codesList))
+					for _, rc := range codesList {
+						rcClean := strings.TrimSpace(rc)
+						if !recoveryMatched && (rcClean == cleanedCode || strings.ReplaceAll(rcClean, "-", "") == strings.ReplaceAll(cleanedCode, "-", "")) {
+							recoveryMatched = true
+							// Burn this recovery code upon use
+							continue
+						}
+						if rcClean != "" {
+							newCodesList = append(newCodesList, rcClean)
+						}
+					}
+					if recoveryMatched {
+						// Update remaining recovery codes in DB
+						newCodesStr := strings.Join(newCodesList, ",")
+						encNewCodes, err := pkgcrypto.Encrypt([]byte(newCodesStr), uc.encryptionKey)
+						if err == nil {
+							encNewCodesHex := hex.EncodeToString(encNewCodes)
+							_ = uc.userRepo.Update2FAWithRecoveryCodes(user.UserID, user.TwoFactorSecret, &encNewCodesHex, true)
+						}
+					}
+				}
+			}
+		}
 
-	if !totp.Validate(code, secretStr) {
-		return nil, domain.ErrInvalid2FACode
+		if !recoveryMatched {
+			return nil, domain.ErrInvalid2FACode
+		}
 	}
 
 	return uc.generateJWTResponse(user, jwtSecret, expiryHours)
+}
+
+func (uc *authUsecase) GetRecoveryCodes(userID uuid.UUID) ([]string, error) {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, domain.ErrNotFound
+	}
+	if !user.TwoFactorEnabled || user.TwoFactorRecoveryCodes == nil || *user.TwoFactorRecoveryCodes == "" {
+		return nil, errors.New("2FA belum aktif atau kode pemulihan belum dibuat")
+	}
+
+	encBytes, err := hex.DecodeString(*user.TwoFactorRecoveryCodes)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mendecode kode pemulihan: %w", err)
+	}
+
+	decrypted, err := pkgcrypto.Decrypt(encBytes, uc.encryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mendekripsi kode pemulihan: %w", err)
+	}
+
+	rawCodes := strings.Split(string(decrypted), ",")
+	var validCodes []string
+	for _, c := range rawCodes {
+		c = strings.TrimSpace(c)
+		if c != "" {
+			validCodes = append(validCodes, c)
+		}
+	}
+
+	return validCodes, nil
+}
+
+func (uc *authUsecase) RegenerateRecoveryCodes(userID uuid.UUID) ([]string, error) {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, domain.ErrNotFound
+	}
+	if !user.TwoFactorEnabled {
+		return nil, errors.New("2FA harus aktif untuk membuat ulang kode pemulihan")
+	}
+
+	rawCodes, codesStr := generateRecoveryCodes()
+	encCodes, err := pkgcrypto.Encrypt([]byte(codesStr), uc.encryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengenkripsi kode pemulihan: %w", err)
+	}
+	encCodesHex := hex.EncodeToString(encCodes)
+
+	if err := uc.userRepo.Update2FAWithRecoveryCodes(userID, user.TwoFactorSecret, &encCodesHex, true); err != nil {
+		return nil, fmt.Errorf("gagal menyimpan kode pemulihan: %w", err)
+	}
+
+	return rawCodes, nil
 }
 
 func (uc *authUsecase) generatePreAuthToken(user *domain.User, jwtSecret string) (string, error) {

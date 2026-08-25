@@ -59,7 +59,7 @@ type Disable2FARequest struct {
 
 type Login2FARequest struct {
 	PreAuthToken string `json:"pre_auth_token" binding:"required"`
-	Code         string `json:"code" binding:"required,len=6"`
+	Code         string `json:"code" binding:"required,min=6,max=20"`
 }
 
 type ChangePasswordRequest struct {

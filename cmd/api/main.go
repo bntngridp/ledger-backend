@@ -296,6 +296,8 @@ func main() {
 			api.POST("/auth/2fa/enable", authHandler.Enable2FA)
 			api.POST("/auth/2fa/verify", authHandler.Verify2FA)
 			api.POST("/auth/2fa/disable", authHandler.Disable2FA)
+			api.GET("/auth/2fa/recovery-codes", authHandler.GetRecoveryCodes)
+			api.POST("/auth/2fa/recovery-codes/regenerate", authHandler.RegenerateRecoveryCodes)
 			api.POST("/auth/2fa/email-otp/send", authHandler.Send2FAEmailOTP)
 
 			api.POST("/auth/password/email-otp/send", authHandler.SendChangePasswordEmailOTP)
