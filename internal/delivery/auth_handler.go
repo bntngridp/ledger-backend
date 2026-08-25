@@ -697,6 +697,45 @@ func (h *AuthHandler) VerifyBiometric(c *gin.Context) {
 	})
 }
 
+// DisableBiometric godoc
+// @Summary      Disable biometric authentication (WebAuthn)
+// @Description  Removes the registered biometric credentials and disables biometric login/auth
+// @Tags         Auth
+// @Security     BearerAuth
+// @Produce      json
+// @Success      200  {object}  domain.SuccessResponse
+// @Failure      401  {object}  domain.ErrorResponse
+// @Failure      500  {object}  domain.ErrorResponse
+// @Router       /auth/biometric [delete]
+func (h *AuthHandler) DisableBiometric(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		userIDStr, _ = c.Get("userID")
+	}
+	if userIDStr == nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{Status: http.StatusUnauthorized, Message: "invalid user ID"})
+		return
+	}
+
+	if err := h.authUC.DisableBiometric(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: "Gagal menonaktifkan biometrik: " + err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Biometrik berhasil dinonaktifkan",
+	})
+}
+
 // GetMe godoc
 // @Summary      Get current authenticated user profile
 // @Description  Returns user info, security status (2FA, PIN, Biometric), wallet ID, and registration date

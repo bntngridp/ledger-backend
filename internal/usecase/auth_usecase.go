@@ -47,6 +47,7 @@ type AuthUsecase interface {
 	GetBiometricChallenge(userID uuid.UUID) (string, error)
 	RegisterBiometric(userID uuid.UUID, req domain.BiometricRegisterRequest) error
 	VerifyBiometric(userID uuid.UUID, req domain.BiometricVerifyRequest) error
+	DisableBiometric(userID uuid.UUID) error
 	GetMe(userID uuid.UUID) (*domain.UserProfileResponse, error)
 }
 
@@ -293,6 +294,26 @@ func (uc *authUsecase) VerifyBiometric(userID uuid.UUID, req domain.BiometricVer
 
 	if !ecdsa.Verify(ecPubKey, signedDataHash[:], r, s) {
 		return errors.New("verifikasi biometrik gagal: signature tidak valid")
+	}
+
+	return nil
+}
+
+func (uc *authUsecase) DisableBiometric(userID uuid.UUID) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return domain.ErrNotFound
+	}
+
+	user.BiometricCredentialID = nil
+	user.BiometricPublicKey = nil
+	user.BiometricEnabled = false
+
+	if err := uc.userRepo.UpdateUser(user); err != nil {
+		return fmt.Errorf("failed to update user biometric settings: %w", err)
 	}
 
 	return nil
