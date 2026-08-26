@@ -325,6 +325,8 @@ func main() {
 			api.GET("/notifications/unread-count", notifHandler.GetUnreadCount)
 			api.PATCH("/notifications/read-all", notifHandler.MarkAllAsRead)
 			api.PATCH("/notifications/:id/read", notifHandler.MarkAsRead)
+			api.DELETE("/notifications/all", notifHandler.DeleteAllNotifications)
+			api.POST("/notifications/bulk-delete", notifHandler.DeleteBulkNotifications)
 			api.DELETE("/notifications/:id", notifHandler.DeleteNotification)
 		}
 	}

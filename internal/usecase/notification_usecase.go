@@ -117,3 +117,28 @@ func (uc *NotificationUsecase) DeleteNotification(notificationIDStr string, user
 	}
 	return nil
 }
+
+// DeleteAllNotifications removes all notifications for the user.
+func (uc *NotificationUsecase) DeleteAllNotifications(userID uuid.UUID) error {
+	if err := uc.notifRepo.DeleteAllNotifications(userID); err != nil {
+		return fmt.Errorf("delete all notifications: %w", err)
+	}
+	return nil
+}
+
+// DeleteBulkNotifications removes multiple notifications given their string IDs for the user.
+func (uc *NotificationUsecase) DeleteBulkNotifications(notificationIDStrs []string, userID uuid.UUID) error {
+	uuids := make([]uuid.UUID, 0, len(notificationIDStrs))
+	for _, idStr := range notificationIDStrs {
+		if id, err := uuid.Parse(idStr); err == nil {
+			uuids = append(uuids, id)
+		}
+	}
+	if len(uuids) == 0 {
+		return nil
+	}
+	if err := uc.notifRepo.DeleteMultipleNotifications(uuids, userID); err != nil {
+		return fmt.Errorf("delete multiple notifications: %w", err)
+	}
+	return nil
+}

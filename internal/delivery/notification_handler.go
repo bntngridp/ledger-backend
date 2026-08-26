@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/bntngridp/ledger-backend/internal/domain"
 	"github.com/bntngridp/ledger-backend/internal/usecase"
 	"github.com/bntngridp/ledger-backend/pkg/response"
 	"github.com/gin-gonic/gin"
@@ -178,5 +179,66 @@ func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "success",
 		"message": "Notification deleted",
+	})
+}
+
+// DeleteAllNotifications godoc
+// @Summary      Delete all notifications
+// @Description  Permanently removes all notifications for the authenticated user.
+// @Tags         notifications
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} domain.SuccessResponse
+// @Failure      401 {object} domain.ErrorResponse
+// @Router       /notifications/all [delete]
+func (h *NotificationHandler) DeleteAllNotifications(c *gin.Context) {
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	if err := h.notifUC.DeleteAllNotifications(userID); err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "All notifications deleted",
+	})
+}
+
+// DeleteBulkNotifications godoc
+// @Summary      Delete multiple notifications
+// @Description  Permanently removes selected notifications for the authenticated user.
+// @Tags         notifications
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request body domain.DeleteBulkNotificationsRequest true "IDs to delete"
+// @Success      200 {object} domain.SuccessResponse
+// @Failure      400 {object} domain.ErrorResponse
+// @Failure      401 {object} domain.ErrorResponse
+// @Router       /notifications/bulk-delete [post]
+func (h *NotificationHandler) DeleteBulkNotifications(c *gin.Context) {
+	userID, ok := h.getUserID(c)
+	if !ok {
+		return
+	}
+
+	var req domain.DeleteBulkNotificationsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "invalid input, notification_ids required"})
+		return
+	}
+
+	if err := h.notifUC.DeleteBulkNotifications(req.NotificationIDs, userID); err != nil {
+		response.HandleError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": "Selected notifications deleted",
 	})
 }

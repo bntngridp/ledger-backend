@@ -302,6 +302,10 @@ type NotificationListResponse struct {
 	UnreadCount   int64              `json:"unread_count"`
 }
 
+type DeleteBulkNotificationsRequest struct {
+	NotificationIDs []string `json:"notification_ids" binding:"required,min=1"`
+}
+
 // ============================================================
 // Midtrans Iris Callback DTOs
 // ============================================================

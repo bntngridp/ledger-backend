@@ -77,6 +77,10 @@ type NotificationRepository interface {
 	GetUnreadCount(userID uuid.UUID) (int64, error)
 	// DeleteNotification removes a single notification (must belong to user).
 	DeleteNotification(notificationID, userID uuid.UUID) error
+	// DeleteAllNotifications removes all notifications for a user.
+	DeleteAllNotifications(userID uuid.UUID) error
+	// DeleteMultipleNotifications removes multiple notifications by IDs for a user.
+	DeleteMultipleNotifications(notificationIDs []uuid.UUID, userID uuid.UUID) error
 }
 
 // CryptoAddressRepository defines the data access contract for on-chain deposit addresses.

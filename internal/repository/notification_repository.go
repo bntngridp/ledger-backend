@@ -103,6 +103,27 @@ func (r *notificationRepository) DeleteNotification(notificationID, userID uuid.
 	return nil
 }
 
+func (r *notificationRepository) DeleteAllNotifications(userID uuid.UUID) error {
+	if err := r.db.
+		Where("user_id = ?", userID).
+		Delete(&domain.Notification{}).Error; err != nil {
+		return fmt.Errorf("delete all notifications: %w", err)
+	}
+	return nil
+}
+
+func (r *notificationRepository) DeleteMultipleNotifications(notificationIDs []uuid.UUID, userID uuid.UUID) error {
+	if len(notificationIDs) == 0 {
+		return nil
+	}
+	if err := r.db.
+		Where("user_id = ? AND notification_id IN ?", userID, notificationIDs).
+		Delete(&domain.Notification{}).Error; err != nil {
+		return fmt.Errorf("delete multiple notifications: %w", err)
+	}
+	return nil
+}
+
 // TotalPages helper (not part of the interface, but used internally in handler mapping)
 func TotalPages(total int64, perPage int) int {
 	if perPage <= 0 {
