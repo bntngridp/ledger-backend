@@ -351,6 +351,46 @@ func (h *AuthHandler) Send2FAEmailOTP(c *gin.Context) {
 	})
 }
 
+// SendPaymentEmailOTP godoc
+// @Summary      Send Email OTP for Payment / Withdrawal authorization
+// @Tags         auth
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200 {object} domain.SuccessResponse "OTP sent"
+// @Router       /auth/payment/email-otp/send [post]
+func (h *AuthHandler) SendPaymentEmailOTP(c *gin.Context) {
+	userIDStr, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr.(string))
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, domain.ErrorResponse{
+			Status:  http.StatusUnauthorized,
+			Message: "unauthorized",
+		})
+		return
+	}
+
+	if err := h.authUC.SendPaymentEmailOTP(userID); err != nil {
+		c.JSON(http.StatusInternalServerError, domain.ErrorResponse{
+			Status:  http.StatusInternalServerError,
+			Message: err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, domain.SuccessResponse{
+		Status:  http.StatusOK,
+		Message: "Kode OTP transaksi telah dikirimkan ke email Anda",
+	})
+}
+
 // Disable2FA godoc
 // @Summary      Disable 2FA TOTP
 // @Description  Disables 2FA by validating the current TOTP code, Recovery Code, or Email OTP.

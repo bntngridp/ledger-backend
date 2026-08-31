@@ -299,6 +299,7 @@ func main() {
 			api.GET("/auth/2fa/recovery-codes", authHandler.GetRecoveryCodes)
 			api.POST("/auth/2fa/recovery-codes/regenerate", authHandler.RegenerateRecoveryCodes)
 			api.POST("/auth/2fa/email-otp/send", authHandler.Send2FAEmailOTP)
+			api.POST("/auth/payment/email-otp/send", authHandler.SendPaymentEmailOTP)
 
 			api.POST("/auth/password/email-otp/send", authHandler.SendChangePasswordEmailOTP)
 			api.POST("/auth/password/change", authHandler.ChangePassword)
@@ -319,6 +320,7 @@ func main() {
 			api.POST("/exchange/swap", limiter, exchangeHandler.Swap)
 
 			api.POST("/fiat/withdraw", limiter, middleware.Require2FAIfEnabled(authUC), fiatHandler.WithdrawFiat)
+			api.POST("/withdraw/fiat", limiter, middleware.Require2FAIfEnabled(authUC), fiatHandler.WithdrawFiat)
 
 			// Notifications
 			api.GET("/notifications", notifHandler.GetNotifications)

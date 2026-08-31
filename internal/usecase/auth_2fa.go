@@ -518,3 +518,120 @@ func (uc *authUsecase) ChangePassword(userID uuid.UUID, req domain.ChangePasswor
 
 	return nil
 }
+
+func (uc *authUsecase) SendPaymentEmailOTP(userID uuid.UUID) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return domain.ErrNotFound
+	}
+
+	otpCode := email.GenerateNumericOTP()
+
+	uc.otpMu.Lock()
+	uc.emailOTPs[userID] = emailOTPEntry{
+		code:      otpCode,
+		expiresAt: time.Now().Add(5 * time.Minute),
+	}
+	uc.otpMu.Unlock()
+
+	if uc.emailService != nil {
+		uc.emailService.SendOTPEmailAsync(user.Email, otpCode, "Verifikasi Keamanan Transaksi / Penarikan Dana Ledger")
+	}
+	return nil
+}
+
+func (uc *authUsecase) VerifyPaymentSecurity(userID uuid.UUID, twoFactorCode string, emailOTP string) error {
+	user, err := uc.userRepo.GetUserByID(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return domain.ErrNotFound
+	}
+
+	// If 2FA is not enabled on the user's account, skip 2FA / OTP verification
+	if !user.TwoFactorEnabled {
+		return nil
+	}
+
+	// 1. Verify 2FA Authenticator Code or Recovery Code
+	cleaned2FACode := strings.TrimSpace(twoFactorCode)
+	if cleaned2FACode == "" {
+		return errors.New("kode 2FA Authenticator wajib diisi untuk otorisasi transaksi")
+	}
+
+	if user.TwoFactorSecret == nil {
+		return errors.New("2FA secret missing")
+	}
+
+	encBytes, err := hex.DecodeString(*user.TwoFactorSecret)
+	if err != nil {
+		return fmt.Errorf("failed to decode encrypted secret: %w", err)
+	}
+
+	decrypted, err := pkgcrypto.Decrypt(encBytes, uc.encryptionKey)
+	if err != nil {
+		return fmt.Errorf("failed to decrypt secret: %w", err)
+	}
+	secretStr := string(decrypted)
+
+	totpValid := totp.Validate(cleaned2FACode, secretStr)
+	if !totpValid {
+		// Check recovery codes
+		recoveryMatched := false
+		if user.TwoFactorRecoveryCodes != nil && *user.TwoFactorRecoveryCodes != "" {
+			encCodes, err := hex.DecodeString(*user.TwoFactorRecoveryCodes)
+			if err == nil {
+				decCodes, err := pkgcrypto.Decrypt(encCodes, uc.encryptionKey)
+				if err == nil {
+					codesList := strings.Split(string(decCodes), ",")
+					newCodesList := make([]string, 0, len(codesList))
+					for _, rc := range codesList {
+						rcClean := strings.TrimSpace(rc)
+						if !recoveryMatched && (rcClean == cleaned2FACode || strings.ReplaceAll(rcClean, "-", "") == strings.ReplaceAll(cleaned2FACode, "-", "")) {
+							recoveryMatched = true
+							// Burn this recovery code upon use
+							continue
+						}
+						if rcClean != "" {
+							newCodesList = append(newCodesList, rcClean)
+						}
+					}
+					if recoveryMatched {
+						newCodesStr := strings.Join(newCodesList, ",")
+						encNewCodes, err := pkgcrypto.Encrypt([]byte(newCodesStr), uc.encryptionKey)
+						if err == nil {
+							encNewCodesHex := hex.EncodeToString(encNewCodes)
+							_ = uc.userRepo.Update2FAWithRecoveryCodes(user.UserID, user.TwoFactorSecret, &encNewCodesHex, true)
+						}
+					}
+				}
+			}
+		}
+		if !recoveryMatched {
+			return domain.ErrInvalid2FACode
+		}
+	}
+
+	// 2. Verify Email OTP
+	cleanedEmailOTP := strings.TrimSpace(emailOTP)
+	if cleanedEmailOTP == "" {
+		return errors.New("kode verifikasi email (Email OTP) wajib diisi untuk otorisasi transaksi")
+	}
+
+	uc.otpMu.Lock()
+	otpEntry, exists := uc.emailOTPs[userID]
+	if exists && otpEntry.code == cleanedEmailOTP && !time.Now().After(otpEntry.expiresAt) {
+		delete(uc.emailOTPs, userID) // Burn the OTP on successful verification
+	}
+	uc.otpMu.Unlock()
+
+	if !exists || time.Now().After(otpEntry.expiresAt) || otpEntry.code != cleanedEmailOTP {
+		return errors.New("kode verifikasi email tidak valid atau sudah kadaluwarsa")
+	}
+
+	return nil
+}

@@ -128,6 +128,8 @@ type TransferRequest struct {
 	AssetSymbol       string          `json:"asset_symbol" binding:"required"`
 	Amount            decimal.Decimal `json:"amount" binding:"required,gt=0"`
 	Notes             string          `json:"notes"`
+	TwoFactorCode     string          `json:"two_factor_code,omitempty"`
+	EmailOTP          string          `json:"email_otp,omitempty"`
 }
 
 type TopUpRequest struct {
@@ -166,6 +168,8 @@ type WithdrawFiatRequest struct {
 	AccountNumber string          `json:"account_number" binding:"required"`
 	AccountName   string          `json:"account_name" binding:"required"`
 	Notes         string          `json:"notes"`
+	TwoFactorCode string          `json:"two_factor_code,omitempty"`
+	EmailOTP      string          `json:"email_otp,omitempty"`
 }
 
 type WithdrawFiatResponse struct {
@@ -226,11 +230,13 @@ type DepositAddressResponse struct {
 }
 
 type CryptoWithdrawRequest struct {
-	AssetSymbol string          `json:"asset_symbol" binding:"required"`
-	Network     string          `json:"network" binding:"required"`
-	ToAddress   string          `json:"to_address" binding:"required"`
-	Amount      decimal.Decimal `json:"amount" binding:"required,gt=0"`
-	Notes       string          `json:"notes"`
+	AssetSymbol   string          `json:"asset_symbol" binding:"required"`
+	Network       string          `json:"network" binding:"required"`
+	ToAddress     string          `json:"to_address" binding:"required"`
+	Amount        decimal.Decimal `json:"amount" binding:"required,gt=0"`
+	Notes         string          `json:"notes"`
+	TwoFactorCode string          `json:"two_factor_code,omitempty"`
+	EmailOTP      string          `json:"email_otp,omitempty"`
 }
 
 type CryptoWithdrawResponse struct {

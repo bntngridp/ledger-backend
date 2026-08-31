@@ -43,10 +43,12 @@ type AuthUsecase interface {
 	GetRecoveryCodes(userID uuid.UUID) ([]string, error)
 	RegenerateRecoveryCodes(userID uuid.UUID) ([]string, error)
 	Send2FAEmailOTP(userID uuid.UUID) error
+	SendPaymentEmailOTP(userID uuid.UUID) error
 	SendChangePasswordEmailOTP(userID uuid.UUID) error
 	ChangePassword(userID uuid.UUID, req domain.ChangePasswordRequest) error
 	Verify2FALogin(preAuthToken, code, jwtSecret string, expiryHours int) (*domain.LoginResponse, error)
 	Verify2FACode(userID uuid.UUID, code string) error
+	VerifyPaymentSecurity(userID uuid.UUID, twoFactorCode string, emailOTP string) error
 	SetupPIN(userID uuid.UUID, pin string) error
 	VerifyPIN(userID uuid.UUID, pin string) error
 	GetBiometricChallenge(userID uuid.UUID) (string, error)
