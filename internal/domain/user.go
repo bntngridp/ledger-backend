@@ -18,7 +18,7 @@ type User struct {
 	TwoFactorRecoveryCodes *string   `gorm:"type:text;default:null" json:"-"`
 	TwoFactorEnabled       bool      `gorm:"default:false;not null" json:"two_factor_enabled"`
 	TransactionPIN         *string   `gorm:"type:varchar(255);default:null" json:"-"`
-	PINEnabled             bool      `gorm:"default:true;not null" json:"pin_enabled"`
+	PINEnabled             bool      `gorm:"default:false;not null" json:"pin_enabled"`
 	BiometricCredentialID  *string   `gorm:"type:text;default:null" json:"-"`
 	BiometricPublicKey     *string   `gorm:"type:text;default:null" json:"-"`
 	BiometricEnabled       bool      `gorm:"default:false;not null" json:"biometric_enabled"`

@@ -109,11 +109,14 @@ func (uc *authUsecase) Register(username, email, password string) (*domain.Regis
 	hashedPasswordStr := string(hashedPassword)
 
 	user := &domain.User{
-		UserID:   userID,
-		Username: username,
-		Email:    email,
-		Password: &hashedPasswordStr,
-		IsActive: true,
+		UserID:           userID,
+		Username:         username,
+		Email:            email,
+		Password:         &hashedPasswordStr,
+		IsActive:         true,
+		PINEnabled:       false,
+		BiometricEnabled: false,
+		TwoFactorEnabled: false,
 	}
 
 	wallet := &domain.Wallet{
@@ -387,6 +390,7 @@ func (uc *authUsecase) GetMe(userID uuid.UUID) (*domain.UserProfileResponse, err
 		walletIDStr = &wStr
 	}
 
+	isPINSet := user.TransactionPIN != nil && *user.TransactionPIN != ""
 	return &domain.UserProfileResponse{
 		UserID:           user.UserID.String(),
 		Username:         user.Username,
@@ -394,7 +398,7 @@ func (uc *authUsecase) GetMe(userID uuid.UUID) (*domain.UserProfileResponse, err
 		AvatarURL:        user.AvatarURL,
 		IsActive:         user.IsActive,
 		TwoFactorEnabled: user.TwoFactorEnabled,
-		PINEnabled:       user.PINEnabled,
+		PINEnabled:       isPINSet,
 		BiometricEnabled: user.BiometricEnabled,
 		CreatedAt:        user.CreatedAt,
 		WalletID:         walletIDStr,

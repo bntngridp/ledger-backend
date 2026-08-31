@@ -114,6 +114,8 @@ func RunMigrations(db *gorm.DB) error {
 		return fmt.Errorf("failed to add transactions destination_wallet_id FK: %w", err)
 	}
 
+	_ = db.Exec(`UPDATE users SET pin_enabled = false WHERE transaction_pin IS NULL OR transaction_pin = '';`).Error
+
 	log.Println("database migrations completed")
 	return nil
 }
